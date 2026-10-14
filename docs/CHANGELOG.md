@@ -2,6 +2,17 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.2.0] - 2026-10-14
+
+### Websentry Light Editorial Theme Migration
+- **Visual Design Transformation**:
+  - Implemented high-contrast editorial light aesthetic with `#f4f6f8` canvas and `#ffffff` component cards.
+  - Added `Newsreader` serif typography for headers and section titles, paired with `Plus Jakarta Sans` for body text.
+  - Styled sidebar with white background, subtle border, dark slate brand icon, and green-outlined active state pills (`border border-[#047857] bg-[#f0fdf4] text-[#064e3b]`).
+  - Added new **Daily** overview dashboard displaying the exact metrics, lead source comparison table, and conversion funnel bars in pine green (`#047857`), ochre (`#c2410c`), and slate blue (`#2563eb`).
+  - Reskinned all 10 core pages (Discover, Programs, Leads, Profile, Matcher, Emails, Outbox, WhatsApp/Replies, Settings, Docs).
+- **Documentation**: Added comprehensive step-by-step documentation in `docs/theme-migration.md`.
+
 ## [1.1.0] - 2026-10-14
 
 ### UI & Navigation Overhaul

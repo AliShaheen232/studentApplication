@@ -1129,6 +1129,7 @@ app.get('/api/docs/:name', (req, res) => {
     'gmail-oauth': 'docs/gmail-oauth.md',
     'sending-limits': 'docs/sending-limits.md',
     'compliance': 'docs/compliance.md',
+    'theme-migration': 'docs/theme-migration.md',
     'changelog': 'docs/CHANGELOG.md',
     'progress': 'docs/progress.md'
   };

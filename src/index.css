@@ -3,23 +3,27 @@
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #030712;
-    color: #f3f4f6;
+    background-color: #f4f6f8;
+    color: #1e293b;
+  }
+
+  .font-serif-editorial {
+    font-family: 'Newsreader', 'Georgia', 'Cambria', serif;
   }
 }
 
-/* Custom scrollbars */
+/* Crisp light theme scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #94a3b8;
 }
