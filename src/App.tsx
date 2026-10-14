@@ -17,6 +17,8 @@ import {
   Globe,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
+  Menu,
   ShieldCheck,
   FileText,
   Upload,
@@ -96,6 +98,8 @@ interface MatchResult {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'search' | 'programs' | 'contacts' | 'profile' | 'matches' | 'compose' | 'queue' | 'sent' | 'settings' | 'docs'>('search');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
   // Data States
   const [universities, setUniversities] = useState<University[]>([]);
@@ -429,106 +433,260 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-600 selection:text-white">
-      {/* Top Banner & Header */}
-      <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40 px-6 py-3.5">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans selection:bg-indigo-600 selection:text-white">
+      {/* Mobile Backdrop */}
+      {isMobileSidebarOpen && (
+        <div 
+          onClick={() => setIsMobileSidebarOpen(false)}
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden"
+        />
+      )}
+
+      {/* Left Sidebar */}
+      <aside className={`
+        fixed lg:sticky top-0 h-screen z-50 flex flex-col justify-between shrink-0
+        bg-slate-900 border-r border-slate-800 backdrop-blur-md transition-all duration-300 ease-in-out
+        ${isSidebarOpen ? 'w-64' : 'w-20'}
+        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        {/* Brand Header */}
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/25">
               <GraduationCap className="h-6 w-6 text-white" />
             </div>
+            {isSidebarOpen && (
+              <div className="truncate">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-base tracking-tight text-white">AdmitPath</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    v1.0
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 truncate">Global Admissions Engine</p>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="hidden lg:flex p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+            title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            <ChevronLeft className={`h-4 w-4 transition-transform duration-200 ${!isSidebarOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <button
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Navigation Links */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-5">
+          {[
+            {
+              group: 'Discovery',
+              items: [
+                { id: 'search', label: 'University Directory', icon: Building2 },
+                { id: 'programs', label: 'Program Catalog', icon: Layers },
+                { id: 'contacts', label: 'Public Contacts', icon: Users },
+              ]
+            },
+            {
+              group: 'Admissions Engine',
+              items: [
+                { id: 'profile', label: 'Profile & Documents', icon: UserCheck },
+                { id: 'matches', label: 'Admissions Matcher', icon: Sparkles },
+              ]
+            },
+            {
+              group: 'Outreach & Mailer',
+              items: [
+                { id: 'compose', label: 'Compose & Review', icon: Mail },
+                { id: 'queue', label: 'Outbox Queue', icon: Clock, badge: queueData.items?.length },
+                { id: 'sent', label: 'Sent & Replies', icon: Send, badge: sentData.sent?.length },
+              ]
+            },
+            {
+              group: 'System & Tools',
+              items: [
+                { id: 'settings', label: 'Settings & OAuth', icon: Settings },
+                { id: 'docs', label: 'Docs & Unit Tests', icon: BookOpen },
+              ]
+            }
+          ].map((grp) => (
+            <div key={grp.group} className="space-y-1">
+              {isSidebarOpen && (
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  {grp.group}
+                </div>
+              )}
+              {grp.items.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id as any);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    title={!isSidebarOpen ? tab.label : undefined}
+                    className={`w-full flex items-center ${isSidebarOpen ? 'justify-between px-3 py-2.5' : 'justify-center p-2.5'} rounded-xl text-xs font-semibold transition-all group ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'}`} />
+                      {isSidebarOpen && (
+                        <span className="truncate">{tab.label}</span>
+                      )}
+                    </div>
+                    {typeof tab.badge === 'number' && tab.badge > 0 && (
+                      isSidebarOpen ? (
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                          isActive ? 'bg-indigo-800 text-white' : 'bg-slate-800 text-indigo-300'
+                        }`}>
+                          {tab.badge}
+                        </span>
+                      ) : (
+                        <span className="h-2 w-2 rounded-full bg-indigo-400 absolute right-2 top-2" />
+                      )
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Sidebar Footer with Lanes & Profile */}
+        <div className="p-3 border-t border-slate-800 space-y-2 bg-slate-950/40">
+          {isSidebarOpen ? (
+            <>
+              {/* Background Lanes Status Bar */}
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Crawler Lane
+                  </span>
+                  <span className="font-semibold text-emerald-300">Ready</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-cyan-400"></span>
+                    Mailer Lane
+                  </span>
+                  <span className="font-semibold text-cyan-300">Cap {queueData.current_ramp_cap}/d</span>
+                </div>
+              </div>
+
+              {/* User Profile Card */}
+              <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900 border border-slate-800/80">
+                <div className="h-9 w-9 shrink-0 rounded-full bg-indigo-900 border border-indigo-500/30 flex items-center justify-center font-bold text-xs text-indigo-300">
+                  {(profile.full_name || 'A').charAt(0)}
+                </div>
+                <div className="truncate min-w-0">
+                  <p className="text-xs font-semibold text-slate-200 truncate">{profile.full_name || 'Alex Vance'}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{profile.nationality || 'Indonesia'} • GPA {profile.gpa || 3.86}</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-1">
+              <div className="h-9 w-9 rounded-full bg-indigo-900 border border-indigo-500/30 flex items-center justify-center font-bold text-xs text-indigo-300" title={profile.full_name}>
+                {(profile.full_name || 'A').charAt(0)}
+              </div>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="System Ready" />
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* Main Content Column */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Header Bar */}
+        <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+              title="Open Navigation Menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-xl tracking-tight text-white">AdmitPath</span>
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  Global Admissions Engine
+                <h1 className="text-base font-extrabold text-white">
+                  {{
+                    search: 'University Directory',
+                    programs: 'Academic Programs Catalog',
+                    contacts: 'Public Admissions & Faculty Contacts',
+                    profile: 'Student Academic Profile & Document Vault',
+                    matches: 'Algorithmic Program Matcher',
+                    compose: 'Personalized Email Composer & Review Gate',
+                    queue: 'Outbox Delivery Queue & Governor',
+                    sent: 'Delivery Tracking, Replies & Bounces',
+                    settings: 'Account Settings, Deliverability & Compliance',
+                    docs: 'Documentation Hub & Test Runner'
+                  }[activeTab] || 'AdmitPath'}
+                </h1>
+                <span className="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded-full font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                  Global Admissions
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Directory • Public Contacts • Personalized Outreach • Deliverability Guard</p>
+              <p className="text-xs text-slate-400 hidden md:block">
+                Directory • Public Contacts • Personalized Outreach • Deliverability Guard
+              </p>
             </div>
           </div>
 
-          {/* Background Lanes Status Bar */}
-          <div className="flex items-center gap-3 bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
-            <div className="flex items-center gap-2 pr-3 border-r border-slate-800">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-slate-400">Crawler Lane:</span>
-              <span className="font-medium text-emerald-300">Ready (1-2 Concurrency)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-cyan-400"></span>
-              <span className="text-slate-400">Mailer Lane:</span>
-              <span className="font-medium text-cyan-300">
-                Cap {queueData.current_ramp_cap}/day (Stage {queueData.ramp_stage || 1})
-              </span>
-            </div>
-          </div>
-
-          {/* User Profile Pill */}
           <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold text-slate-200">{profile.full_name || 'Alex Vance'}</p>
-              <p className="text-[11px] text-slate-400">{profile.nationality || 'Indonesia'} • GPA {profile.gpa || 3.86}/4.0</p>
+            {/* Quick Status Pill */}
+            <div className="hidden sm:flex items-center gap-3 bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
+              <div className="flex items-center gap-2 pr-3 border-r border-slate-800">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-slate-400">Crawler:</span>
+                <span className="font-medium text-emerald-300">Ready</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-cyan-400"></span>
+                <span className="text-slate-400">Mailer:</span>
+                <span className="font-medium text-cyan-300">
+                  {queueData.sent_today || 0}/{queueData.current_ramp_cap} sent
+                </span>
+              </div>
             </div>
-            <div className="h-9 w-9 rounded-full bg-indigo-900 border border-indigo-500/30 flex items-center justify-center font-bold text-sm text-indigo-300">
-              {(profile.full_name || 'A').charAt(0)}
+
+            {/* User Pill */}
+            <div className="flex items-center gap-2 pl-2">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-semibold text-slate-200">{profile.full_name || 'Alex Vance'}</p>
+                <p className="text-[10px] text-slate-400">{profile.nationality || 'Indonesia'} • GPA {profile.gpa || 3.86}/4.0</p>
+              </div>
+              <div className="h-8 w-8 rounded-full bg-indigo-900 border border-indigo-500/30 flex items-center justify-center font-bold text-xs text-indigo-300">
+                {(profile.full_name || 'A').charAt(0)}
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Global Notification Toast */}
         {notification && (
-          <div className="max-w-7xl mx-auto mt-2">
-            <div className="bg-indigo-600/90 text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center justify-between shadow-lg backdrop-blur">
+          <div className="px-6 pt-4">
+            <div className="max-w-7xl mx-auto bg-indigo-600/90 text-white px-4 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between shadow-lg backdrop-blur">
               <span>{notification}</span>
-              <button onClick={() => setNotification(null)} className="text-indigo-200 hover:text-white">✕</button>
+              <button onClick={() => setNotification(null)} className="text-indigo-200 hover:text-white ml-2">✕</button>
             </div>
           </div>
         )}
-      </header>
 
-      {/* Navigation Tabs */}
-      <nav className="border-b border-slate-800 bg-slate-900/50 px-6 overflow-x-auto">
-        <div className="max-w-7xl mx-auto flex items-center gap-1 py-1.5 min-w-max">
-          {[
-            { id: 'search', label: 'University Directory', icon: Building2 },
-            { id: 'programs', label: 'Program Catalog', icon: Layers },
-            { id: 'contacts', label: 'Public Contacts', icon: Users },
-            { id: 'profile', label: 'Profile & Documents', icon: UserCheck },
-            { id: 'matches', label: 'Admissions Matcher', icon: Sparkles },
-            { id: 'compose', label: 'Compose & Review', icon: Mail },
-            { id: 'queue', label: 'Outbox Queue', icon: Clock, badge: queueData.items?.length },
-            { id: 'sent', label: 'Sent & Replies', icon: Send, badge: sentData.sent?.length },
-            { id: 'settings', label: 'Settings & OAuth', icon: Settings },
-            { id: 'docs', label: 'Docs & Unit Tests', icon: BookOpen }
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-                {typeof tab.badge === 'number' && tab.badge > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${isActive ? 'bg-indigo-800 text-white' : 'bg-slate-800 text-indigo-300'}`}>
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+        {/* Main Content Area */}
+        <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8">
         {/* 1. UNIVERSITY DIRECTORY TAB */}
         {activeTab === 'search' && (
           <div className="space-y-6">
@@ -1776,6 +1934,7 @@ export default function App() {
           </div>
         )}
       </main>
+      </div>
 
       {/* University Programs & Contacts Detail Modal */}
       {isUnivModalOpen && selectedUniv && (

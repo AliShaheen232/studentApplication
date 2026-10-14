@@ -2,6 +2,21 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.1.0] - 2026-10-14
+
+### UI & Navigation Overhaul
+- **Sidebar Navigation Layout**:
+  - Replaced top horizontal scrolling navbar with a responsive vertical **Sidebar**.
+  - Categorized menu items into intuitive functional groups:
+    - **Discovery**: University Directory, Program Catalog, Public Contacts.
+    - **Admissions Engine**: Profile & Documents, Admissions Matcher.
+    - **Outreach & Pipeline**: Compose & Review, Outbox Queue, Sent & Replies.
+    - **System & Tools**: Settings & OAuth, Docs & Unit Tests.
+  - Added desktop collapsible toggle (expand/compact mode with tooltips).
+  - Added mobile responsive drawer with slide-in animation and backdrop.
+  - Relocated background lanes widget (Crawler Lane & Mailer Lane) and student profile badge into the sidebar footer.
+  - Implemented top status bar with active section title and quick delivery metrics.
+
 ## [1.0.0] - 2026-10-14
 
 ### Initial Full-Stack Release
