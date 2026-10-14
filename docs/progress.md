@@ -29,7 +29,6 @@
 - [x] **Phase 9: Documentation, Unit Testing Suite & Polish**
   - Status: Completed.
   - Implemented: Full test suite passing 100% across auth, extractors, contacts, matcher, tzwindow, composer, sending limits, and suppression. Rich modern UI with live interactive preview.
-- [x] **Phase 10: Websentry Light Editorial Theme Overhaul**
+- [x] **Phase 10: AdminPath Light Editorial Theme Overhaul**
   - Status: Completed.
   - Implemented: High-contrast light aesthetic (`#f4f6f8` background, `#ffffff` cards), `Newsreader` editorial serif typography, green-outlined active sidebar pills, Daily analytical dashboard with live metrics, lead source comparison table, and dual funnel charts. Full documentation in `docs/theme-migration.md`.
-

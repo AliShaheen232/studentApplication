@@ -4,7 +4,8 @@ All notable changes to the AdmitPath application will be documented in this file
 
 ## [1.2.0] - 2026-10-14
 
-### Websentry Light Editorial Theme Migration
+### AdminPath Light Editorial Theme Migration
+
 - **Visual Design Transformation**:
   - Implemented high-contrast editorial light aesthetic with `#f4f6f8` canvas and `#ffffff` component cards.
   - Added `Newsreader` serif typography for headers and section titles, paired with `Plus Jakarta Sans` for body text.
@@ -16,6 +17,7 @@ All notable changes to the AdmitPath application will be documented in this file
 ## [1.1.0] - 2026-10-14
 
 ### UI & Navigation Overhaul
+
 - **Sidebar Navigation Layout**:
   - Replaced top horizontal scrolling navbar with a responsive vertical **Sidebar**.
   - Categorized menu items into intuitive functional groups:
@@ -31,6 +33,7 @@ All notable changes to the AdmitPath application will be documented in this file
 ## [1.0.0] - 2026-10-14
 
 ### Initial Full-Stack Release
+
 - **Core Architecture**:
   - Implemented dual-runtime architecture: Python core modules (`core/`, `scrapers/`, `tests/`) and full Express + Node 22 native SQLite engine (`server.ts`) for zero-lag dev/production serving.
   - SQLite database initialized in WAL (`Write-Ahead Logging`) mode with foreign key integrity.
