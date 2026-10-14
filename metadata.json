@@ -1,0 +1,6 @@
+{
+  "name": "AdmitPath",
+  "description": "Discover universities and programs worldwide, find public admissions contacts, and send personalized inquiry emails with compliance and deliverability protections.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
