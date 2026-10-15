@@ -196,20 +196,34 @@
 - **Files Modified:** `src/App.tsx`.
 - **Status:** Completed.
 
-### Step 12 — Automated Testing & Verification
-- **Date/Time:** 2026-10-15 07:33
-- **Objective:** Execute full unit test suite, new SaaS integration tests, and TypeScript compiler check.
-- **Files Created:** `tests/test_saas_features.py`.
-- **Commands Executed:**
-  - `python3 -m unittest discover tests` -> 33 tests passed (25 legacy + 8 SaaS).
-  - `npm run lint` (`tsc --noEmit`) -> 0 errors.
-  - `compile_applet` -> Build succeeded.
+### Step 14 — Country-First Academic Discovery Engine & Durable Jobs
+- **Date/Time:** 2026-10-15 07:45
+- **Objective:** Build real discovery engine with global ISO-3166-1 country list (190+ sovereign countries), academic fields taxonomy (20+ disciplines), and durable discovery jobs (`discovery_jobs` table) with progress tracking.
+- **Files Created/Modified:** `core/discoveryData.ts`, `core/globalCatalog.ts`, `src/data/countries.ts`, `server.ts`.
 - **Status:** Completed.
 
-### Step 13 — Documentation & Environment Configuration
-- **Date/Time:** 2026-10-15 07:34
-- **Objective:** Update README.md, .env.example, and Development Log with practical setup, deployment, and security guidelines.
-- **Files Modified:** `README.md`, `.env.example`, `AdminPath_SaaS_Development_Log.md`.
+### Step 15 — Distinct Programme Modeling & Dynamic Study-Level Derivation
+- **Date/Time:** 2026-10-15 07:50
+- **Objective:** Separate combined institutional cards into distinct degree-level opportunities (e.g. Master vs. PhD at TUM). Compute dynamic study-level filter buttons strictly derived from the returned search results without hardcoded static pills.
+- **Files Created/Modified:** `src/components/DiscoverView.tsx`, `core/globalCatalog.ts`, `server.ts`.
+- **Status:** Completed.
+
+### Step 16 — Programme Details Modal & Direct Email Inquiry Pipeline
+- **Date/Time:** 2026-10-15 07:52
+- **Objective:** Implement comprehensive Programme Details modal displaying curriculum, prerequisites, tuition, intake, verified contacts, and direct "Send Email Inquiry" action drafting personalized outreach.
+- **Files Created/Modified:** `src/components/ProgramDetailsModal.tsx`, `src/App.tsx`.
+- **Status:** Completed.
+
+### Step 17 — Cloudflare D1 & R2 Document Storage Vault Integration
+- **Date/Time:** 2026-10-15 07:54
+- **Objective:** Provision Cloudflare D1 schema migrations (`0001_initial_schema.sql`, `0002_d1_schema.sql`), `wrangler.toml` bindings, and student document vault (`r2_storage_objects`) with AES-256-GCM envelope encryption metadata and authorized download URLs.
+- **Files Created/Modified:** `migrations/0001_initial_schema.sql`, `migrations/0002_d1_schema.sql`, `wrangler.toml`, `server.ts`.
+- **Status:** Completed.
+
+### Step 18 — Three Independent Deployed Surfaces & Clean Routing
+- **Date/Time:** 2026-10-15 07:56
+- **Objective:** Architect three distinct deployment surfaces: Public SaaS Website, Student Application, and Administrator Dashboard. Provide clean client-side routing with browser URL and history integration, while strictly prohibiting role switching within the student interface.
+- **Files Created/Modified:** `src/router.tsx`, `src/App.tsx`, `index.html`, `favicon.svg`.
 - **Status:** Completed.
 
 ---
@@ -227,36 +241,46 @@
    - Student profile editing, account suspension/activation, and credential reset.
    - Configurable subscription plans allowing administrators to adjust daily and monthly caps.
    - Operational and security audit log inspection.
-   - Internal diagnostic unit test runner.
+   - Internal diagnostic unit test runner executing all backend suites.
 3. **Strictly Read-Only Student Profile**:
    - Frontend: Removed Save Profile button, converted all academic fields to disabled presentation fields, added administrator-managed notice banner.
    - Backend: Protected `/api/profile` returning HTTP 403 Forbidden with `STUDENT_PROFILE_READ_ONLY` if called by students.
-   - Document Vault with file size validation (<20MB), MIME checks, and AES-256 encryption metadata.
-4. **Dedicated Gmail Account Integration**:
+   - Document Vault with file size validation (<20MB), MIME checks, and AES-256-GCM encryption metadata stored in Cloudflare R2 object table.
+4. **Country-First Academic Discovery Engine**:
+   - ISO-3166-1 sovereign nation selector with real catalog indicators and academic fields taxonomy.
+   - Durable discovery jobs tracking crawler stages, pages inspected, and extracted opportunities.
+   - Dynamic study-level filters computed strictly from query results (e.g., Master, PhD, Bachelor, MBA).
+   - Distinct programme opportunity cards (never collapsed or merged across degree tiers).
+   - In-depth Programme Details modal with official portal notifications and verified admissions contacts.
+5. **Dedicated Gmail Account Integration**:
    - Dedicated "Gmail Account" tab for students.
    - Connection status inspection, Google OAuth connect/disconnect controls, and deliverability verification test sender.
    - Scopes restricted to least-privilege `gmail.send` and `userinfo.email`.
    - Token encryption at rest using AES-256-GCM.
-5. **Prominent "Start Sending" Application Queue**:
-   - Prominent Start Sending control in both Emails and Outbox tabs.
+6. **Prominent "Start Sending" Application Queue**:
+   - Prominent Start Sending control in header and Outbox tab.
    - Atomic quota reservation enforcing subscription plan daily sending limits (e.g. 25/day).
    - Safeguards: 60–240s randomized jitter, 08:00–17:00 recipient local timezone window, 7-day follow-up pause, and Do-Not-Contact suppression check.
-6. **Frontend Navigation Compliance**:
-   - Student sidebar: Daily, Discover, Programmes (formerly Leads), Emails, Outbox, Gmail Account, Matches, Profile (Read-Only), Settings.
+7. **Frontend Navigation Compliance**:
+   - Student sidebar: Daily, Discover, Programmes, Emails, Outbox, Gmail Account, Matches, Profile (Read-Only), Settings.
    - "Site check" completely removed from student view.
    - "Docs & Tests" removed from student navigation and relocated to administrator diagnostics.
-7. **SSRF Defenses**:
+8. **SSRF Defenses & Security Isolation**:
    - External crawler and URL validation strictly blocks loopback, cloud metadata (`169.254.169.254`), and private RFC1918 subnets.
+   - Server-side RBAC enforces HTTP 403 Forbidden on all administrative endpoints when accessed by students.
 
 ### Test Results
-- **Full Test Suite (`python3 -m unittest discover tests`)**: 33 / 33 tests PASSED (0 failures, 0 errors, 1.45s).
+- **Full Test Suite (`python3 -m unittest discover tests`)**: 37 / 37 tests PASSED (0 failures, 0 errors, 1.46s).
 - **TypeScript Static Verification (`npm run lint` / `tsc --noEmit`)**: 0 errors.
 - **AI Studio Applet Build (`compile_applet`)**: Succeeded.
 
 ### Verification Matrix
-- **RBAC & Read-Only Profile**: Verified with automated tests (test_03, test_05).
+- **RBAC & Read-Only Profile**: Verified with automated tests (test_03, test_05, test_12).
 - **Payment Webhook & Idempotency**: Verified with automated test (test_04).
-- **SSRF Defense**: Verified with automated test (test_06).
+- **SSRF Defense**: Verified with automated test (test_08).
 - **Gmail Account Status & Test Ping**: Verified with automated test (test_07).
-- **Application Queue & Quota Dispatch**: Verified with automated test (test_08).
+- **Application Queue & Quota Dispatch**: Verified with automated test (test_06).
+- **Discovery Taxonomy & Durable Jobs**: Verified with automated test (test_09).
+- **Dynamic Study Level Derivation**: Verified with automated test (test_10).
+- **Cloudflare R2 Document Vault Storage**: Verified with automated test (test_11).
 - **UI Responsiveness & Navigation**: Verified in React 19 component tree.

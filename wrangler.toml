@@ -1,0 +1,40 @@
+# AdminPath Cloudflare Worker / Pages Deployment Configuration
+name = "adminpath-saas"
+main = "server.ts"
+compatibility_date = "2026-10-15"
+compatibility_flags = ["nodejs_compat"]
+
+# 1. Cloudflare D1 Relational Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "adminpath-prod-d1"
+database_id = "d1-adminpath-cluster-primary"
+migrations_dir = "migrations"
+
+# 2. Cloudflare R2 Document Vault Bucket Binding
+[[r2_buckets]]
+binding = "DOCUMENTS_BUCKET"
+bucket_name = "adminpath-student-documents"
+
+# 3. Environment Variables
+[vars]
+HOST = "0.0.0.0"
+DAILY_CAP_DEFAULT = "25"
+MIN_SEND_GAP_SEC = "60"
+MAX_SEND_GAP_SEC = "240"
+TZ_WINDOW_START_HOUR = "8"
+TZ_WINDOW_END_HOUR = "17"
+MAX_BOUNCE_RATE_PERCENT = "5.0"
+FOLLOW_UP_MIN_DAYS = "7"
+STORAGE_PROVIDER = "r2"
+
+# 4. Multi-Domain Routing Surfaces
+# - Public marketing and checkout: adminpath.com
+# - Student Application: app.adminpath.com
+# - Admin Dashboard: admin.adminpath.com
+[env.production]
+routes = [
+  { pattern = "adminpath.com/*", zone_name = "adminpath.com" },
+  { pattern = "app.adminpath.com/*", zone_name = "adminpath.com" },
+  { pattern = "admin.adminpath.com/*", zone_name = "adminpath.com" }
+]

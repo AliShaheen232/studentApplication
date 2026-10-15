@@ -37,19 +37,26 @@ import {
   Check,
   Shield,
   KeyRound,
-  CreditCard
+  CreditCard,
+  Calendar,
+  DollarSign,
+  Info
 } from 'lucide-react';
 
+import { RouterProvider, useRouter, AppSurface } from './router';
 import PublicWebsite from './components/PublicWebsite';
 import AdminDashboard from './components/AdminDashboard';
 import StudentProfile from './components/StudentProfile';
 import GmailTab from './components/GmailTab';
 import StartSendingModal from './components/StartSendingModal';
+import DiscoverView, { DiscoveredProgram } from './components/DiscoverView';
+import ProgramDetailsModal from './components/ProgramDetailsModal';
 
 interface University {
   id: string;
   name: string;
   country: string;
+  country_code?: string;
   city: string;
   website: string;
   domain: string;
@@ -67,6 +74,7 @@ interface Program {
   university_id: string;
   name: string;
   level: string;
+  original_degree?: string;
   department: string;
   language: string;
   duration_months: number;
@@ -74,10 +82,15 @@ interface Program {
   deadline: string;
   requirements: string;
   program_url: string;
+  admissions_url?: string;
   subject_category: string;
   application_mode?: string;
   university_name?: string;
   country?: string;
+  city?: string;
+  domain?: string;
+  website?: string;
+  ranking?: number;
 }
 
 interface Contact {
@@ -107,23 +120,8 @@ interface MatchResult {
   };
 }
 
-export default function App() {
-  // Mode & Role State
-  const [appMode, setAppMode] = useState<'app' | 'public'>('app');
-  const [userRole, setUserRole] = useState<'student' | 'admin'>('student');
-
-  // Student Navigation Tab
-  const [activeTab, setActiveTab] = useState<
-    | 'daily'
-    | 'search'
-    | 'programs'
-    | 'compose'
-    | 'queue'
-    | 'gmail'
-    | 'matches'
-    | 'profile'
-    | 'settings'
-  >('daily');
+function AppContent() {
+  const { surface, path, navigate } = useRouter();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -177,18 +175,13 @@ export default function App() {
   const [suppressionList, setSuppressionList] = useState<any[]>([]);
 
   // Modals & Selections
-  const [selectedUniv, setSelectedUniv] = useState<University | null>(null);
-  const [selectedUnivPrograms, setSelectedUnivPrograms] = useState<Program[]>([]);
-  const [selectedUnivContacts, setSelectedUnivContacts] = useState<Contact[]>([]);
-  const [isUnivModalOpen, setIsUnivModalOpen] = useState(false);
+  const [selectedDetailProg, setSelectedDetailProg] = useState<DiscoveredProgram | null>(null);
   const [isStartSendingOpen, setIsStartSendingOpen] = useState(false);
 
-  // Search & Filter State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState('all');
-  const [selectedSubject, setSelectedSubject] = useState('all');
-  const [selectedLevel, setSelectedLevel] = useState('all');
-  const [maxBudgetFilter, setMaxBudgetFilter] = useState('');
+  // Programmes Catalog Filter State
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
+  const [catalogCountryFilter, setCatalogCountryFilter] = useState('all');
+  const [catalogLevelFilter, setCatalogLevelFilter] = useState('all');
 
   // Composer State
   const [composeTargetProg, setComposeTargetProg] = useState<Program | null>(null);
@@ -212,7 +205,7 @@ export default function App() {
   // Initial Data Fetching
   const fetchAllData = async () => {
     try {
-      const headers = { 'x-impersonate-role': userRole };
+      const headers = { 'x-impersonate-role': 'student' };
       const [
         uRes,
         pRes,
@@ -264,79 +257,26 @@ export default function App() {
 
   useEffect(() => {
     fetchAllData();
-  }, [userRole]);
+  }, []);
 
-  // Fetch matches whenever user opens matches tab
+  // Fetch matches whenever on /matches
   useEffect(() => {
-    if (activeTab === 'matches') {
-      fetch('/api/matcher', { headers: { 'x-impersonate-role': userRole } })
+    if (path.startsWith('/matches')) {
+      fetch('/api/matcher', { headers: { 'x-impersonate-role': 'student' } })
         .then((r) => r.json())
         .then((data) => setMatches(data))
         .catch(console.error);
     }
-  }, [activeTab, userRole]);
-
-  // University Detail Modal
-  const handleOpenUnivModal = async (univ: University) => {
-    setSelectedUniv(univ);
-    setIsUnivModalOpen(true);
-    try {
-      const res = await fetch(`/api/universities/${univ.id}`);
-      const data = await res.json();
-      setSelectedUnivPrograms(data.programs || []);
-      setSelectedUnivContacts(data.contacts || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Shortlist action
-  const handleToggleShortlist = async (univId: string, progId?: string) => {
-    try {
-      const res = await fetch('/api/shortlists', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-impersonate-role': userRole },
-        body: JSON.stringify({ university_id: univId, program_id: progId }),
-      });
-      if (res.ok) {
-        showNotify('Added to Academic Shortlist.');
-        const sl = await fetch('/api/shortlists', { headers: { 'x-impersonate-role': userRole } }).then((r) => r.json());
-        setShortlists(sl);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Run polite crawler with SSRF defense
-  const handleRunCrawler = async (univId: string) => {
-    showNotify('Dispatching polite web crawler (robots.txt validation & SSRF policy checked)...');
-    try {
-      const res = await fetch('/api/crawler/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-impersonate-role': userRole },
-        body: JSON.stringify({ university_id: univId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showNotify(data.message);
-        fetchAllData();
-      } else {
-        showNotify('Crawler blocked: ' + data.error);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  }, [path]);
 
   // Prepare Compose
-  const handleStartCompose = (prog: Program) => {
-    setComposeTargetProg(prog);
+  const handleStartCompose = (prog: Program | DiscoveredProgram) => {
+    setComposeTargetProg(prog as Program);
     const targetContact =
       contacts.find((c) => c.university_id === prog.university_id) || contacts[0];
     setComposeTargetContact(targetContact || null);
-    setActiveTab('compose');
-    generateDraft(prog, targetContact, composeTemplate, customHook);
+    generateDraft(prog as Program, targetContact, composeTemplate, customHook);
+    navigate('/emails');
   };
 
   const generateDraft = async (
@@ -349,7 +289,7 @@ export default function App() {
     try {
       const res = await fetch('/api/compose/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-impersonate-role': userRole },
+        headers: { 'Content-Type': 'application/json', 'x-impersonate-role': 'student' },
         body: JSON.stringify({
           program_id: prog.id,
           contact_id: cont?.id,
@@ -373,7 +313,7 @@ export default function App() {
     try {
       const saveRes = await fetch('/api/drafts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-impersonate-role': userRole },
+        headers: { 'Content-Type': 'application/json', 'x-impersonate-role': 'student' },
         body: JSON.stringify({
           program_id: composeTargetProg.id,
           contact_id: composeTargetContact?.id,
@@ -388,13 +328,13 @@ export default function App() {
       if (saveData.draft_id) {
         const appRes = await fetch(`/api/drafts/${saveData.draft_id}/approve`, {
           method: 'POST',
-          headers: { 'x-impersonate-role': userRole }
+          headers: { 'x-impersonate-role': 'student' }
         });
         const appData = await appRes.json();
         if (appRes.ok) {
           showNotify(appData.message);
           fetchAllData();
-          setActiveTab('queue');
+          navigate('/outbox');
         } else {
           showNotify(`Error: ${appData.error}`);
         }
@@ -409,7 +349,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/queue/${itemId}/send-now`, {
         method: 'POST',
-        headers: { 'x-impersonate-role': userRole }
+        headers: { 'x-impersonate-role': 'student' }
       });
       const data = await res.json();
       if (res.ok) {
@@ -422,12 +362,11 @@ export default function App() {
       console.error(err);
     }
   };
-
   // Document Vault Actions
   const handleUploadDoc = async (docType: string, filename: string, size: number, mimeType: string) => {
-    const res = await fetch('/api/documents', {
+    const res = await fetch('/api/documents/upload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-impersonate-role': userRole },
+      headers: { 'Content-Type': 'application/json', 'x-impersonate-role': 'student' },
       body: JSON.stringify({
         doc_type: docType,
         filename,
@@ -439,48 +378,81 @@ export default function App() {
       const err = await res.json();
       throw new Error(err.error || 'Upload failed');
     }
-    const updated = await fetch('/api/documents', { headers: { 'x-impersonate-role': userRole } }).then(r => r.json());
+    const updated = await fetch('/api/documents', { headers: { 'x-impersonate-role': 'student' } }).then(r => r.json());
     setDocuments(updated);
   };
 
   const handleDeleteDoc = async (docId: string) => {
     await fetch(`/api/documents/${docId}`, {
       method: 'DELETE',
-      headers: { 'x-impersonate-role': userRole }
+      headers: { 'x-impersonate-role': 'student' }
     });
-    const updated = await fetch('/api/documents', { headers: { 'x-impersonate-role': userRole } }).then(r => r.json());
+    const updated = await fetch('/api/documents', { headers: { 'x-impersonate-role': 'student' } }).then(r => r.json());
     setDocuments(updated);
     showNotify('Document removed from vault.');
   };
 
-  // Filter Universities
-  const filteredUniversities = universities.filter((u) => {
-    if (selectedCountry !== 'all' && u.country.toLowerCase() !== selectedCountry.toLowerCase())
+  // Filter Catalog Programmes
+  const filteredCatalogPrograms = programs.filter((p) => {
+    if (catalogCountryFilter !== 'all' && p.country?.toLowerCase() !== catalogCountryFilter.toLowerCase())
       return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchName = u.name.toLowerCase().includes(q);
-      const matchCity = u.city.toLowerCase().includes(q);
-      const matchDomain = u.domain.toLowerCase().includes(q);
-      if (!matchName && !matchCity && !matchDomain) return false;
+    if (catalogLevelFilter !== 'all' && p.level?.toLowerCase() !== catalogLevelFilter.toLowerCase())
+      return false;
+    if (catalogSearchQuery) {
+      const q = catalogSearchQuery.toLowerCase();
+      const matchName = p.name.toLowerCase().includes(q);
+      const matchUniv = (p.university_name || '').toLowerCase().includes(q);
+      const matchDept = (p.department || '').toLowerCase().includes(q);
+      if (!matchName && !matchUniv && !matchDept) return false;
     }
-    if (maxBudgetFilter && u.tuition_min > parseFloat(maxBudgetFilter))
-      return false;
     return true;
   });
 
-  // If in Public Website Mode, render the full public SaaS marketing portal
-  if (appMode === 'public') {
+  // -------------------------------------------------------------
+  // SURFACE 1: PUBLIC WEBSITE (Landing, Pricing, Checkout)
+  // -------------------------------------------------------------
+  if (surface === 'public') {
     return (
       <PublicWebsite
-        onSignInClick={() => setAppMode('app')}
+        onSignInClick={() => navigate('/dashboard')}
         onSelectPlan={(planId) => {
-          showNotify(`Selected plan ${planId}. Opening sign-in to complete subscription.`);
-          setAppMode('app');
+          showNotify(`Plan ${planId} selected. Complete checkout to provision student access.`);
+          navigate('/dashboard');
         }}
       />
     );
   }
+
+  // -------------------------------------------------------------
+  // SURFACE 2: ADMINISTRATOR DASHBOARD
+  // -------------------------------------------------------------
+  if (surface === 'admin') {
+    return <AdminDashboard onNotify={showNotify} />;
+  }
+
+  // -------------------------------------------------------------
+  // SURFACE 3: STUDENT APPLICATION
+  // NOTE: Strict compliance with Master Prompt:
+  // "The student application must not contain buttons that switch
+  // between Student View, Admin View, and Public Site."
+  // -------------------------------------------------------------
+  const activeStudentTab = path.startsWith('/discover')
+    ? 'discover'
+    : path.startsWith('/programmes')
+    ? 'programmes'
+    : path.startsWith('/matches')
+    ? 'matches'
+    : path.startsWith('/emails')
+    ? 'emails'
+    : path.startsWith('/outbox')
+    ? 'outbox'
+    : path.startsWith('/gmail')
+    ? 'gmail'
+    : path.startsWith('/profile')
+    ? 'profile'
+    : path.startsWith('/settings')
+    ? 'settings'
+    : 'dashboard';
 
   return (
     <div className="min-h-screen bg-[#f4f6f8] text-slate-800 flex font-sans selection:bg-emerald-700 selection:text-white antialiased">
@@ -534,71 +506,60 @@ export default function App() {
           </div>
 
           {/* Navigation Links for Students */}
-          {userRole === 'student' ? (
-            <div className="p-3 space-y-1">
-              {[
-                { id: 'daily', label: 'Daily', icon: Activity },
-                { id: 'search', label: 'Discover', icon: Search },
-                { id: 'programs', label: 'Programmes', icon: GraduationCap },
-                { id: 'compose', label: 'Emails', icon: Mail },
-                {
-                  id: 'queue',
-                  label: 'Outbox',
-                  icon: Send,
-                  badge: queueData.items?.filter((i: any) => i.status === 'pending')?.length,
-                },
-                { id: 'gmail', label: 'Gmail Account', icon: KeyRound },
-                { id: 'matches', label: 'Matches', icon: Sparkles },
-                { id: 'profile', label: 'Profile', icon: UserCheck },
-                { id: 'settings', label: 'Settings', icon: Settings },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id as any);
-                      setIsMobileSidebarOpen(false);
-                    }}
-                    title={!isSidebarOpen ? tab.label : undefined}
-                    className={`w-full flex items-center ${
-                      isSidebarOpen ? 'justify-between px-3 py-2' : 'justify-center p-2'
-                    } rounded-lg text-xs font-normal transition-all group ${
-                      isActive
-                        ? 'border border-[#047857] bg-[#f0fdf4] text-[#064e3b] font-medium shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon
-                        className={`h-4 w-4 shrink-0 ${
-                          isActive ? 'text-[#047857]' : 'text-slate-500 group-hover:text-slate-700'
-                        }`}
-                        strokeWidth={1.6}
-                      />
-                      {isSidebarOpen && <span className="truncate">{tab.label}</span>}
-                    </div>
-                    {typeof tab.badge === 'number' && tab.badge > 0 && isSidebarOpen && (
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                        {tab.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            /* Admin Sidebar Navigation */
-            <div className="p-3 space-y-1">
-              <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Administrator
-              </div>
-              <div className="px-3 py-2 text-xs font-medium bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200">
-                Admin Console Active
-              </div>
-            </div>
-          )}
+          <div className="p-3 space-y-1">
+            {[
+              { path: '/dashboard', id: 'dashboard', label: 'Daily', icon: Activity },
+              { path: '/discover', id: 'discover', label: 'Discover', icon: Search },
+              { path: '/programmes', id: 'programmes', label: 'Programmes', icon: GraduationCap },
+              { path: '/emails', id: 'emails', label: 'Emails', icon: Mail },
+              {
+                path: '/outbox',
+                id: 'outbox',
+                label: 'Outbox',
+                icon: Send,
+                badge: queueData.items?.filter((i: any) => i.status === 'pending')?.length,
+              },
+              { path: '/gmail', id: 'gmail', label: 'Gmail Account', icon: KeyRound },
+              { path: '/matches', id: 'matches', label: 'Matches', icon: Sparkles },
+              { path: '/profile', id: 'profile', label: 'Profile', icon: UserCheck },
+              { path: '/settings', id: 'settings', label: 'Settings', icon: Settings },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeStudentTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    navigate(tab.path);
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  title={!isSidebarOpen ? tab.label : undefined}
+                  className={`w-full flex items-center ${
+                    isSidebarOpen ? 'justify-between px-3 py-2' : 'justify-center p-2'
+                  } rounded-lg text-xs font-normal transition-all group ${
+                    isActive
+                      ? 'border border-[#047857] bg-[#f0fdf4] text-[#064e3b] font-medium shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      className={`h-4 w-4 shrink-0 ${
+                        isActive ? 'text-[#047857]' : 'text-slate-500 group-hover:text-slate-700'
+                      }`}
+                      strokeWidth={1.6}
+                    />
+                    {isSidebarOpen && <span className="truncate">{tab.label}</span>}
+                  </div>
+                  {typeof tab.badge === 'number' && tab.badge > 0 && isSidebarOpen && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Sidebar Footer */}
@@ -606,11 +567,11 @@ export default function App() {
           {isSidebarOpen ? (
             <div className="text-[11px] text-slate-500 space-y-1">
               <div className="flex items-center justify-between text-slate-700 font-medium">
-                <span>{userRole === 'admin' ? 'Admin Master' : 'Student Mode'}</span>
+                <span>Student Application</span>
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
               </div>
               <p className="truncate text-slate-400">
-                {userRole === 'admin' ? 'System Oversight' : `${queueData.plan_name || 'Scholar Pro'} • ${profile.full_name || 'Alex'}`}
+                {`${queueData.plan_name || 'Scholar Pro'} • ${profile.full_name || 'Alex Vance'}`}
               </p>
             </div>
           ) : (
@@ -633,23 +594,21 @@ export default function App() {
               <Menu className="h-4 w-4" />
             </button>
             <h1 className="font-serif-editorial text-2xl font-normal text-slate-900 tracking-tight">
-              {userRole === 'admin'
-                ? 'Administrator Dashboard & Provisioning'
-                : {
-                    daily: 'Daily Overview',
-                    search: 'Discover (Global Institutions)',
-                    programs: 'Academic Programmes Catalog',
-                    compose: 'Personalized Email Generation',
-                    queue: 'Application Outbox & Queue',
-                    gmail: 'Gmail Account Integration',
-                    matches: 'Admissions Fit Matcher',
-                    profile: 'Student Academic Profile',
-                    settings: 'Account Settings & Preferences',
-                  }[activeTab] || 'Daily'}
+              {{
+                dashboard: 'Daily Overview',
+                discover: 'Discover (Country-First Academic Programmes)',
+                programmes: 'Academic Programmes Catalog',
+                emails: 'Personalized Email Generation',
+                outbox: 'Application Outbox & Queue',
+                gmail: 'Gmail Account Integration',
+                matches: 'Admissions Fit Matcher',
+                profile: 'Student Academic Profile (Read-Only)',
+                settings: 'Account Settings & Preferences',
+              }[activeStudentTab] || 'Daily'}
             </h1>
           </div>
 
-          {/* Quick Role & Mode Switcher + Start Sending CTA */}
+          {/* Notification + Start Sending CTA (No Role Switcher in Student UI!) */}
           <div className="flex flex-wrap items-center gap-3 text-xs">
             {notification && (
               <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 px-3 py-1.5 rounded-md flex items-center gap-2 shadow-xs">
@@ -660,693 +619,511 @@ export default function App() {
               </div>
             )}
 
-            {/* Role Switcher Pill */}
-            <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200">
-              <button
-                onClick={() => setUserRole('student')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition ${
-                  userRole === 'student' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Student View
-              </button>
-              <button
-                onClick={() => setUserRole('admin')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition ${
-                  userRole === 'admin' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Admin View
-              </button>
-              <button
-                onClick={() => setAppMode('public')}
-                className="px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1"
-                title="View public landing & pricing website"
-              >
-                <Globe className="h-3 w-3" />
-                Public Site
-              </button>
-            </div>
-
-            {/* Start Sending Button in Header for Student */}
-            {userRole === 'student' && (
-              <button
-                onClick={() => setIsStartSendingOpen(true)}
-                className="px-4 py-2 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5"
-              >
-                <Send className="h-3.5 w-3.5" />
-                Start Sending ({queueData.remaining_daily_quota ?? 25} left)
-              </button>
-            )}
+            {/* Start Sending Button in Header */}
+            <button
+              onClick={() => setIsStartSendingOpen(true)}
+              className="px-4 py-2 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Start Sending ({queueData.remaining_daily_quota ?? 25} left)
+            </button>
           </div>
         </header>
 
         {/* Tab Contents */}
         <main className="flex-1 px-6 lg:px-8 py-6 max-w-7xl w-full mx-auto space-y-6">
-          {/* ADMINISTRATOR DASHBOARD VIEW */}
-          {userRole === 'admin' ? (
-            <AdminDashboard onNotify={showNotify} />
-          ) : (
-            /* STUDENT VIEWS */
-            <>
-              {/* 1. DAILY DASHBOARD TAB */}
-              {activeTab === 'daily' && (
-                <div className="space-y-6">
-                  {/* Latest Day Stats Bar */}
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-xs font-bold text-slate-900">
-                        Admissions Outreach Snapshot ({new Date().toISOString().slice(0, 10)})
-                      </h2>
-                      <span className="text-xs text-slate-500">
-                        Subscription: <strong className="text-slate-800">{queueData.plan_name || 'Scholar Pro'}</strong> ({queueData.remaining_daily_quota} / {queueData.daily_cap} quota today)
-                      </span>
+          {/* 1. DAILY DASHBOARD */}
+          {activeStudentTab === 'dashboard' && (
+            <div className="space-y-6">
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-slate-900">
+                    Admissions Outreach Snapshot ({new Date().toISOString().slice(0, 10)})
+                  </h2>
+                  <span className="text-xs text-slate-500">
+                    Subscription: <strong className="text-slate-800">{queueData.plan_name || 'Scholar Pro'}</strong> ({queueData.remaining_daily_quota} / {queueData.daily_cap} quota today)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
+                    <div className="text-2xl font-bold text-slate-900 leading-none">
+                      {universities.length}
                     </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                      <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
-                        <div className="text-2xl font-bold text-slate-900 leading-none">
-                          {universities.length}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
-                          universities indexed
-                        </div>
-                      </div>
-
-                      <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
-                        <div className="text-2xl font-bold text-slate-900 leading-none">
-                          {programs.length}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
-                          programmes catalogued
-                        </div>
-                      </div>
-
-                      <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
-                        <div className="text-2xl font-bold text-slate-900 leading-none">
-                          {contacts.length}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
-                          verified admissions desks
-                        </div>
-                      </div>
-
-                      <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
-                        <div className="text-2xl font-bold text-[#047857] leading-none">
-                          {queueData.sent_today || 0}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
-                          dispatched today
-                        </div>
-                      </div>
-
-                      <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
-                        <div className="text-2xl font-bold text-emerald-800 leading-none">
-                          {queueData.remaining_daily_quota ?? 25}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
-                          daily quota remaining
-                        </div>
-                      </div>
-
-                      <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
-                        <div className="text-2xl font-bold text-slate-900 leading-none">
-                          {queueData.items?.filter((i: any) => i.status === 'pending')?.length || 0}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
-                          approved in queue
-                        </div>
-                      </div>
+                    <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
+                      institutions indexed
                     </div>
                   </div>
 
-                  {/* Quick Action Banner */}
-                  <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <h3 className="text-base font-bold text-slate-900">Ready to Send Applications?</h3>
-                      <p className="text-xs text-slate-600 max-w-xl">
-                        Review your personalized AI email drafts, verify recipient contact details, and click Start Sending to dispatch through your connected Gmail account.
-                      </p>
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
+                    <div className="text-2xl font-bold text-slate-900 leading-none">
+                      {programs.length}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setActiveTab('compose')}
-                        className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
-                      >
-                        Draft New Inquiry
-                      </button>
-                      <button
-                        onClick={() => setIsStartSendingOpen(true)}
-                        className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs transition flex items-center gap-1.5"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        Start Sending
-                      </button>
+                    <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
+                      distinct programmes
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
+                    <div className="text-2xl font-bold text-slate-900 leading-none">
+                      {shortlists.length}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
+                      shortlisted targets
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
+                    <div className="text-2xl font-bold text-slate-900 leading-none">
+                      {drafts.length}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
+                      inquiry drafts
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
+                    <div className="text-2xl font-bold text-emerald-800 leading-none">
+                      {queueData.remaining_daily_quota ?? 25}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
+                      daily quota left
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
+                    <div className="text-2xl font-bold text-slate-900 leading-none">
+                      {queueData.items?.filter((i: any) => i.status === 'pending')?.length || 0}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
+                      approved in queue
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* 2. DISCOVER UNIVERSITIES TAB */}
-              {activeTab === 'search' && (
-                <div className="space-y-4">
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
-                    <div className="relative w-full md:w-96">
-                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search universities, countries or cities..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-600"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                      <select
-                        value={selectedCountry}
-                        onChange={(e) => setSelectedCountry(e.target.value)}
-                        className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none"
-                      >
-                        <option value="all">All 16 Countries</option>
-                        <option value="USA">USA</option>
-                        <option value="United Kingdom">United Kingdom</option>
-                        <option value="Canada">Canada</option>
-                        <option value="Germany">Germany</option>
-                        <option value="Netherlands">Netherlands</option>
-                        <option value="France">France</option>
-                        <option value="Australia">Australia</option>
-                        <option value="South Korea">South Korea</option>
-                        <option value="Indonesia">Indonesia</option>
-                      </select>
-
-                      <span className="text-xs text-slate-500 whitespace-nowrap">
-                        {filteredUniversities.length} institutions
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                    {filteredUniversities.map((univ) => {
-                      const isShortlisted = shortlists.some((s) => s.university_id === univ.id);
-                      return (
-                        <div
-                          key={univ.id}
-                          className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-semibold text-slate-500">Rank #{univ.ranking || '—'}</span>
-                              <span className="text-slate-500 flex items-center gap-1 font-medium">{univ.country}</span>
-                            </div>
-
-                            <h3 className="font-serif-editorial text-base font-bold text-slate-900 mt-2 leading-snug">
-                              {univ.name}
-                            </h3>
-                            <p className="text-xs text-slate-500 mt-0.5">{univ.city}</p>
-
-                            <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600 space-y-1">
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">Tuition:</span>
-                                <span className="font-medium text-slate-800">
-                                  ${univ.tuition_min.toLocaleString()} – ${univ.tuition_max.toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">Domain:</span>
-                                <span className="font-mono text-[11px] text-slate-600">{univ.domain}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
-                            <button
-                              onClick={() => handleOpenUnivModal(univ)}
-                              className="flex-1 py-1.5 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium transition"
-                            >
-                              View Catalog
-                            </button>
-                            <button
-                              onClick={() => handleToggleShortlist(univ.id)}
-                              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
-                                isShortlisted
-                                  ? 'bg-amber-50 border-amber-300 text-amber-800'
-                                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                              }`}
-                            >
-                              {isShortlisted ? 'Saved ★' : 'Save'}
-                            </button>
-                            <button
-                              onClick={() => handleRunCrawler(univ.id)}
-                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900"
-                              title="Crawl Catalog (SSRF Protected)"
-                            >
-                              <RotateCw className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+              {/* Quick Action Banner */}
+              <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-slate-900">Country-First Academic Programme Discovery</h3>
+                  <p className="text-xs text-slate-600 max-w-xl">
+                    Search accredited institutions across 190+ sovereign nations. Filter by subject taxonomy, derive real study-level filters, inspect official catalogues, and send personalized inquiry emails.
+                  </p>
                 </div>
-              )}
-
-              {/* 3. PROGRAMMES CATALOG TAB (Renamed from Leads / Site Check) */}
-              {activeTab === 'programs' && (
-                <div className="space-y-4">
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex items-center justify-between">
-                    <div>
-                      <h3 className="font-serif-editorial text-base font-bold text-slate-900">
-                        Verified Academic Programmes
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Discovered degrees with tuition schedules, admissions portals, and direct inquiry links
-                      </p>
-                    </div>
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700">
-                      {programs.length} programmes catalogued
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                    {programs.map((p) => {
-                      const isPortalOnly = p.application_mode === 'portal_only';
-                      return (
-                        <div
-                          key={p.id}
-                          className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col justify-between"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="px-2 py-0.5 rounded font-semibold text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                {p.level}
-                              </span>
-                              <span className="text-slate-400 font-medium">{p.country || 'International'}</span>
-                            </div>
-
-                            <h4 className="font-serif-editorial text-sm font-bold text-slate-900 mt-2 leading-snug">
-                              {p.name}
-                            </h4>
-                            <p className="text-xs text-emerald-800 font-medium mt-0.5">{p.university_name}</p>
-
-                            <div className="mt-2 text-xs text-slate-600 space-y-1">
-                              <div>
-                                <span className="text-slate-400">Department:</span> {p.department}
-                              </div>
-                              <div>
-                                <span className="text-slate-400">Tuition:</span> ${p.tuition?.toLocaleString()}
-                              </div>
-                              <div>
-                                <span className="text-slate-400">Deadline:</span> {p.deadline}
-                              </div>
-                              {isPortalOnly && (
-                                <div className="mt-2 p-1.5 bg-amber-50 rounded border border-amber-200 text-[10px] text-amber-900 font-medium">
-                                  Official admissions portal submission required.
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                            <button
-                              onClick={() => handleStartCompose(p)}
-                              className="flex-1 py-1.5 px-3 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-medium transition"
-                            >
-                              Create AI Draft
-                            </button>
-                            {p.program_url && (
-                              <a
-                                href={p.program_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900"
-                                title="Open Official Programme Website"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => navigate('/discover')}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1.5"
+                  >
+                    <Search className="h-3.5 w-3.5" />
+                    Open Discover
+                  </button>
+                  <button
+                    onClick={() => setIsStartSendingOpen(true)}
+                    className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs transition flex items-center gap-1.5"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Start Sending
+                  </button>
                 </div>
-              )}
+              </div>
+            </div>
+          )}
 
-              {/* 4. EMAILS & AI DRAFT COMPOSER TAB */}
-              {activeTab === 'compose' && (
-                <div className="space-y-5">
-                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900">Personalized Application Inquiries</h3>
-                      <p className="text-xs text-slate-500">
-                        AI drafts bespoke inquiries combining your verified academic background with program curriculum
-                      </p>
-                    </div>
+          {/* 2. DISCOVER TAB (Country-First Academic Discovery) */}
+          {activeStudentTab === 'discover' && (
+            <DiscoverView
+              onSelectProgramForEmail={(prog) => handleStartCompose(prog)}
+              onViewProgramDetails={(prog) => setSelectedDetailProg(prog)}
+              onNotify={showNotify}
+            />
+          )}
 
-                    <button
-                      onClick={() => setIsStartSendingOpen(true)}
-                      className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs transition flex items-center gap-1.5"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      Start Sending ({queueData.remaining_daily_quota ?? 25} left today)
-                    </button>
-                  </div>
+          {/* 3. PROGRAMMES CATALOG TAB */}
+          {activeStudentTab === 'programmes' && (
+            <div className="space-y-4">
+              <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
+                <div className="relative w-full md:w-96">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search programmes, disciplines, or institutions..."
+                    value={catalogSearchQuery}
+                    onChange={(e) => setCatalogSearchQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    {/* Controls */}
-                    <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-2xs space-y-4 text-xs">
-                      <div>
-                        <label className="block text-slate-500 mb-1 font-medium">Target Academic Programme</label>
-                        <select
-                          value={composeTargetProg?.id || ''}
-                          onChange={(e) => {
-                            const p = programs.find((x) => x.id === e.target.value);
-                            setComposeTargetProg(p || null);
-                            const c = contacts.find((cnt) => cnt.university_id === p?.university_id);
-                            setComposeTargetContact(c || null);
-                            generateDraft(p || null, c || null, composeTemplate, customHook);
-                          }}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-800"
-                        >
-                          {programs.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <select
+                    value={catalogLevelFilter}
+                    onChange={(e) => setCatalogLevelFilter(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none"
+                  >
+                    <option value="all">All Study Levels</option>
+                    <option value="bachelor">Bachelor's</option>
+                    <option value="master">Master's</option>
+                    <option value="phd">PhD / Doctoral</option>
+                    <option value="mba">MBA</option>
+                  </select>
 
-                      <div>
-                        <label className="block text-slate-500 mb-1 font-medium">Inquiry Strategy</label>
-                        <select
-                          value={composeTemplate}
-                          onChange={(e) => {
-                            setComposeTemplate(e.target.value);
-                            generateDraft(composeTargetProg, composeTargetContact, e.target.value, customHook);
-                          }}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-800"
-                        >
-                          <option value="academic_inquiry">Graduate Program Admissions Inquiry</option>
-                          <option value="research_lab">Research Alignment & Lab Fit Inquiry</option>
-                          <option value="scholarship_funding">Scholarship & Departmental Funding Inquiry</option>
-                        </select>
-                      </div>
+                  <span className="text-xs text-slate-500 whitespace-nowrap">
+                    {filteredCatalogPrograms.length} programmes
+                  </span>
+                </div>
+              </div>
 
-                      <div>
-                        <label className="block text-slate-500 mb-1 font-medium">Bespoke Research Hook</label>
-                        <textarea
-                          rows={3}
-                          placeholder="Reference specific departmental lab work or professors..."
-                          value={customHook}
-                          onChange={(e) => {
-                            setCustomHook(e.target.value);
-                            generateDraft(composeTargetProg, composeTargetContact, composeTemplate, e.target.value);
-                          }}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-800"
-                        />
-                      </div>
-
-                      {portalNotice && (
-                        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-900 space-y-1">
-                          <span className="font-semibold block flex items-center gap-1">
-                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                            Portal Notice
+              {/* Grid of Distinct Programme Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredCatalogPrograms.map((p) => (
+                  <div
+                    key={p.id}
+                    className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs hover:shadow-md transition flex flex-col justify-between"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {p.university_name || 'Accredited Institution'}
                           </span>
-                          {portalNotice}
+                          <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                            {p.name}
+                          </h4>
                         </div>
-                      )}
-
-                      <button
-                        onClick={handleApproveDraft}
-                        className="w-full py-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs transition shadow-2xs"
-                      >
-                        Approve Draft & Queue for Sending
-                      </button>
-                    </div>
-
-                    {/* Preview Box */}
-                    <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-xl p-5 shadow-2xs space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setPreviewMode('html')}
-                            className={`px-2.5 py-1 rounded text-xs font-medium ${
-                              previewMode === 'html' ? 'bg-slate-200 text-slate-900' : 'text-slate-500'
-                            }`}
-                          >
-                            Formatted Preview
-                          </button>
-                          <button
-                            onClick={() => setPreviewMode('text')}
-                            className={`px-2.5 py-1 rounded text-xs font-medium ${
-                              previewMode === 'text' ? 'bg-slate-200 text-slate-900' : 'text-slate-500'
-                            }`}
-                          >
-                            Plain Text
-                          </button>
-                        </div>
-                        <span className="text-xs text-slate-500 font-mono">
-                          To: {composeTargetContact?.email || 'admissions@university.edu'}
+                        <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase">
+                          {p.original_degree || p.level}
                         </span>
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">Subject</label>
-                        <input
-                          type="text"
-                          value={draftSubject}
-                          onChange={(e) => setDraftSubject(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-medium text-slate-800"
-                        />
-                      </div>
+                      <p className="text-xs text-slate-500">{p.department} • {p.subject_category}</p>
 
-                      <div>
-                        {previewMode === 'html' ? (
-                          <div
-                            className="p-4 bg-slate-50/70 border border-slate-200 rounded-lg text-xs leading-relaxed text-slate-800 max-h-96 overflow-y-auto"
-                            dangerouslySetInnerHTML={{ __html: draftBodyHtml }}
-                          />
-                        ) : (
-                          <textarea
-                            rows={12}
-                            value={draftBodyText}
-                            onChange={(e) => setDraftBodyText(e.target.value)}
-                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-lg font-mono text-xs text-slate-800"
-                          />
-                        )}
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+                        <span className="truncate">
+                          Tuition: {p.tuition ? `$${p.tuition.toLocaleString()}` : 'Not available'}
+                        </span>
+                        <span className="truncate">Deadline: {p.deadline || 'Rolling'}</span>
                       </div>
+                    </div>
+
+                    <div className="pt-3 mt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setSelectedDetailProg(p as any)}
+                        className="py-1.5 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        onClick={() => handleStartCompose(p)}
+                        className="py-1.5 px-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold flex items-center justify-center gap-1"
+                      >
+                        <Mail className="h-3 w-3" />
+                        Send Email
+                      </button>
                     </div>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
+            </div>
+          )}
 
-              {/* 5. OUTBOX QUEUE TAB */}
-              {activeTab === 'queue' && (
-                <div className="space-y-4">
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* 4. EMAILS / COMPOSE TAB */}
+          {activeStudentTab === 'emails' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Draft Configuration */}
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-emerald-700" />
+                  Inquiry Target & Template
+                </h3>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Target Programme</label>
+                  <select
+                    value={composeTargetProg?.id || ''}
+                    onChange={(e) => {
+                      const prog = programs.find((p) => p.id === e.target.value);
+                      if (prog) {
+                        setComposeTargetProg(prog);
+                        const c = contacts.find((cnt) => cnt.university_id === prog.university_id) || contacts[0];
+                        setComposeTargetContact(c || null);
+                        generateDraft(prog, c, composeTemplate, customHook);
+                      }
+                    }}
+                    className="w-full p-2 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white"
+                  >
+                    <option value="">Select a programme...</option>
+                    {programs.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.university_name}: {p.name} ({p.original_degree || p.level})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Admissions Recipient</label>
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                    <div className="font-semibold text-slate-800">{composeTargetContact?.name || 'Graduate Admissions Office'}</div>
+                    <div className="text-slate-500 font-mono text-[11px]">{composeTargetContact?.email || 'admissions@university.edu'}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Custom Research Hook</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Describe specific lab, professor, or curriculum aspect..."
+                    value={customHook}
+                    onChange={(e) => setCustomHook(e.target.value)}
+                    className="w-full p-2.5 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white"
+                  />
+                </div>
+
+                <button
+                  onClick={() => generateDraft(composeTargetProg, composeTargetContact, composeTemplate, customHook)}
+                  disabled={!composeTargetProg}
+                  className="w-full py-2.5 px-4 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Regenerate Personalized Draft
+                </button>
+              </div>
+
+              {/* Draft Preview & Review */}
+              <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
-                      <h3 className="font-serif-editorial text-base font-bold text-slate-900">
-                        Outbox Queue & Timezone Safeguards
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Randomized 60–240s send jitter • 08:00–17:00 recipient local business hours
-                      </p>
+                      <h3 className="text-sm font-bold text-slate-900">Personalized Email Draft Review</h3>
+                      <p className="text-xs text-slate-500">Human-in-the-loop review required before queue eligibility.</p>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-600 font-medium">
-                        Sent today: {queueData.sent_today || 0} / {queueData.daily_cap || 25}
-                      </span>
+                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                       <button
-                        onClick={() => setIsStartSendingOpen(true)}
-                        className="px-4 py-2 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5"
+                        onClick={() => setPreviewMode('html')}
+                        className={`px-2.5 py-1 text-xs rounded-md ${previewMode === 'html' ? 'bg-white font-semibold text-slate-800 shadow-2xs' : 'text-slate-600'}`}
                       >
-                        <Send className="h-3.5 w-3.5" />
-                        Start Sending
+                        Formatted
+                      </button>
+                      <button
+                        onClick={() => setPreviewMode('text')}
+                        className={`px-2.5 py-1 text-xs rounded-md ${previewMode === 'text' ? 'bg-white font-semibold text-slate-800 shadow-2xs' : 'text-slate-600'}`}
+                      >
+                        Raw Text
                       </button>
                     </div>
                   </div>
 
-                  {queueData.items?.length === 0 ? (
-                    <div className="bg-white border border-slate-200/80 rounded-xl p-8 text-center text-xs text-slate-500">
-                      Outbox queue is empty. Explore programmes and approve drafts to begin sending.
+                  {portalNotice && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>{portalNotice}</span>
                     </div>
-                  ) : (
-                    queueData.items.map((item: any) => (
-                      <div
-                        key={item.id}
-                        className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex items-center justify-between text-xs"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-900">{item.recipient_name}</span>
-                            <span className="text-slate-400">({item.recipient_email})</span>
-                            <span
-                              className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
-                                item.status === 'sent'
-                                  ? 'bg-emerald-50 text-emerald-800'
-                                  : item.status === 'failed'
-                                  ? 'bg-rose-50 text-rose-800'
-                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
-                              }`}
-                            >
-                              {item.status}
-                            </span>
-                          </div>
-                          <p className="text-slate-600 mt-1 font-medium">{item.subject}</p>
-                          <p className="text-slate-400 text-[11px] mt-0.5">Timezone window: {item.recipient_tz}</p>
-                        </div>
-
-                        {item.status !== 'sent' && (
-                          <button
-                            onClick={() => handleSendQueueItem(item.id)}
-                            className="px-3 py-1.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-medium"
-                          >
-                            Send Now
-                          </button>
-                        )}
-                      </div>
-                    ))
                   )}
-                </div>
-              )}
 
-              {/* 6. DEDICATED GMAIL ACCOUNT TAB */}
-              {activeTab === 'gmail' && (
-                <GmailTab onNotify={showNotify} />
-              )}
-
-              {/* 7. ADMISSIONS FIT MATCHER TAB */}
-              {activeTab === 'matches' && (
-                <div className="space-y-3">
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-4 flex items-center justify-between shadow-2xs">
-                    <div>
-                      <h3 className="font-serif-editorial text-base font-bold text-slate-900">
-                        Academic Program Compatibility Ranking
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Scored dynamically against your verified profile (GPA, Target Degree, Discipline, Budget)
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        fetch('/api/matcher', { headers: { 'x-impersonate-role': userRole } })
-                          .then((r) => r.json())
-                          .then((d) => {
-                            setMatches(d);
-                            showNotify('Recalculated program fits.');
-                          });
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium"
-                    >
-                      Recalculate Fits
-                    </button>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Subject Line</label>
+                    <input
+                      type="text"
+                      value={draftSubject}
+                      onChange={(e) => setDraftSubject(e.target.value)}
+                      className="w-full p-2.5 text-xs border border-slate-200 rounded-lg font-medium"
+                    />
                   </div>
 
-                  {matches.map(({ program, score, reasons, breakdown }) => (
-                    <div
-                      key={program.id}
-                      className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Email Body</label>
+                    {previewMode === 'html' ? (
+                      <div
+                        dangerouslySetInnerHTML={{ __html: draftBodyHtml }}
+                        className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 min-h-[240px] text-xs leading-relaxed"
+                      />
+                    ) : (
+                      <textarea
+                        rows={12}
+                        value={draftBodyText}
+                        onChange={(e) => setDraftBodyText(e.target.value)}
+                        className="w-full p-3 font-mono text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">
+                    Includes required RFC-compliant opt-out footer.
+                  </span>
+
+                  <button
+                    onClick={handleApproveDraft}
+                    disabled={!composeTargetProg || !draftSubject}
+                    className="px-6 py-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Approve Draft & Queue for Sending
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. OUTBOX QUEUE TAB */}
+          {activeStudentTab === 'outbox' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Application Dispatch Queue</h3>
+                  <p className="text-xs text-slate-500">
+                    Governed by <strong>{queueData.plan_name}</strong> ({queueData.remaining_daily_quota} emails remaining today).
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsStartSendingOpen(true)}
+                  className="px-5 py-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Send className="h-4 w-4" />
+                  Start Sending Batch ({queueData.remaining_daily_quota} Daily Quota Left)
+                </button>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th className="p-3">Recipient</th>
+                      <th className="p-3">Programme</th>
+                      <th className="p-3">Subject</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {queueData.items?.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50">
+                        <td className="p-3">
+                          <div className="font-semibold text-slate-900">{item.recipient_name}</div>
+                          <div className="text-slate-400 font-mono text-[11px]">{item.recipient_email}</div>
+                        </td>
+                        <td className="p-3 font-medium text-slate-800">{item.program_name || 'Academic Inquiry'}</td>
+                        <td className="p-3 text-slate-600 line-clamp-1">{item.subject}</td>
+                        <td className="p-3">
                           <span
-                            className={`px-2 py-0.5 rounded text-xs font-bold ${
-                              score >= 85
-                                ? 'bg-emerald-50 text-[#047857] border border-emerald-300'
-                                : 'bg-amber-50 text-amber-800 border border-amber-300'
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              item.status === 'sent'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : item.status === 'failed'
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-amber-100 text-amber-800'
                             }`}
                           >
-                            {score}% Match
+                            {item.status}
                           </span>
-                          <span className="font-semibold text-slate-900 text-sm">{program.name}</span>
-                          <span className="text-xs text-slate-400">• {program.university_name}</span>
-                        </div>
+                        </td>
+                        <td className="p-3 text-right">
+                          {item.status === 'pending' && (
+                            <button
+                              onClick={() => handleSendQueueItem(item.id)}
+                              className="px-3 py-1 rounded bg-slate-900 text-white font-medium hover:bg-slate-800 text-[11px]"
+                            >
+                              Send Now
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {(!queueData.items || queueData.items.length === 0) && (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-slate-400">
+                          No pending applications in queue. Discover programmes and approve drafts to populate your outbox.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-                        <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 pt-1">
-                          <span>Curriculum: {breakdown.subject}/35</span>
-                          <span>•</span>
-                          <span>Level: {breakdown.level}/20</span>
-                          <span>•</span>
-                          <span>Budget: {breakdown.budget}/15</span>
-                          <span>•</span>
-                          <span>GPA: {breakdown.requirements}/15</span>
-                        </div>
+          {/* 6. GMAIL ACCOUNT TAB */}
+          {activeStudentTab === 'gmail' && <GmailTab onNotify={showNotify} />}
 
-                        <div className="space-y-0.5 text-xs text-slate-600 pt-1">
-                          {reasons.slice(0, 2).map((r, i) => (
-                            <div key={i} className="flex items-center gap-1.5">
-                              <Check className="h-3.5 w-3.5 text-[#047857]" /> {r}
-                            </div>
-                          ))}
-                        </div>
+          {/* 7. MATCHES TAB */}
+          {activeStudentTab === 'matches' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs">
+                <h3 className="text-sm font-bold text-slate-900">Academic Fit Matcher</h3>
+                <p className="text-xs text-slate-500">
+                  Scores calculated against your academic profile ({profile.qualification}, GPA {profile.gpa}/{profile.max_gpa}, budget ${profile.budget_max?.toLocaleString()}).
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {matches.map((m, idx) => (
+                  <div key={idx} className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900">{m.program.university_name}</span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                          {m.score}% Match
+                        </span>
                       </div>
-
-                      <button
-                        onClick={() => handleStartCompose(program)}
-                        className="px-4 py-2 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-medium text-xs whitespace-nowrap"
-                      >
-                        Draft Outreach
-                      </button>
+                      <h4 className="text-sm font-semibold text-slate-800">{m.program.name} ({m.program.original_degree || m.program.level})</h4>
+                      <ul className="text-xs text-slate-500 list-disc list-inside space-y-0.5">
+                        {m.reasons.map((r, rIdx) => (
+                          <li key={rIdx}>{r}</li>
+                        ))}
+                      </ul>
                     </div>
-                  ))}
-                </div>
-              )}
 
-              {/* 8. STUDENT PROFILE TAB (STRICTLY READ-ONLY) */}
-              {activeTab === 'profile' && (
-                <StudentProfile
-                  profile={profile}
-                  documents={documents}
-                  onUploadDoc={handleUploadDoc}
-                  onDeleteDoc={handleDeleteDoc}
-                  onNotify={showNotify}
-                />
-              )}
-
-              {/* 9. SETTINGS TAB */}
-              {activeTab === 'settings' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-2xs space-y-4">
-                    <h3 className="font-serif-editorial text-base font-bold text-slate-900">
-                      Deliverability Safeguards
-                    </h3>
-                    <div className="space-y-2 text-slate-600">
-                      <div className="flex justify-between p-2 bg-slate-50 rounded">
-                        <span>Timezone Business Hours:</span>
-                        <strong className="text-slate-800">08:00 – 17:00 Local</strong>
-                      </div>
-                      <div className="flex justify-between p-2 bg-slate-50 rounded">
-                        <span>Follow-Up Minimum Spacing:</span>
-                        <strong className="text-slate-800">7 Days Per Contact</strong>
-                      </div>
-                      <div className="flex justify-between p-2 bg-slate-50 rounded">
-                        <span>Bounce Circuit Breaker:</span>
-                        <strong className="text-emerald-700">Auto-Pause if &gt; 5.0%</strong>
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => handleStartCompose(m.program)}
+                      className="px-4 py-2 rounded-lg bg-[#047857] text-white text-xs font-semibold hover:bg-[#065f46] shrink-0"
+                    >
+                      Draft Inquiry
+                    </button>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-2xs space-y-4">
-                    <h3 className="font-serif-editorial text-base font-bold text-slate-900">
-                      Compliance & Do-Not-Contact List
-                    </h3>
-                    <p className="text-slate-500">
-                      Permanent suppression list enforced across all queues and campaigns.
-                    </p>
-                    <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
-                      {suppressionList.map((sup: any) => (
-                        <div key={sup.id} className="py-2 flex justify-between items-center">
-                          <span className="font-mono text-slate-700">{sup.email}</span>
-                          <span className="text-[10px] text-slate-400">{sup.reason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+          {/* 8. READ-ONLY STUDENT PROFILE TAB */}
+          {activeStudentTab === 'profile' && (
+            <StudentProfile
+              profile={profile}
+              documents={documents}
+              onUploadDoc={handleUploadDoc}
+              onDeleteDoc={handleDeleteDoc}
+              onNotify={showNotify}
+            />
+          )}
+
+          {/* 9. SETTINGS TAB */}
+          {activeStudentTab === 'settings' && (
+            <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-4 max-w-2xl">
+              <h3 className="text-base font-bold text-slate-900">Account & Delivery Preferences</h3>
+              <p className="text-xs text-slate-500">Configured according to your active {queueData.plan_name} subscription.</p>
+
+              <div className="space-y-3 text-xs text-slate-700">
+                <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                  <span>Daily Sending Cap:</span>
+                  <strong className="text-slate-900">{queueData.daily_cap} emails/day</strong>
                 </div>
-              )}
-            </>
+                <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                  <span>Monthly Sending Cap:</span>
+                  <strong className="text-slate-900">{queueData.monthly_cap} emails/month</strong>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                  <span>Recipient Local Delivery Window:</span>
+                  <strong className="text-slate-900">08:00 – 17:00 Local Time</strong>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                  <span>Polite Delivery Jitter:</span>
+                  <strong className="text-slate-900">60–240 seconds randomized gap</strong>
+                </div>
+              </div>
+            </div>
           )}
         </main>
       </div>
@@ -1363,62 +1140,23 @@ export default function App() {
         onNotify={showNotify}
       />
 
-      {/* University Detail Modal */}
-      {isUnivModalOpen && selectedUniv && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-slate-200 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">{selectedUniv.name}</h3>
-                <p className="text-xs text-slate-500">{selectedUniv.city}, {selectedUniv.country} • Rank #{selectedUniv.ranking || '—'}</p>
-              </div>
-              <button onClick={() => setIsUnivModalOpen(false)} className="p-1 rounded text-slate-400 hover:text-slate-700">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="py-4 space-y-4 text-xs">
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-2">Available Degree Programmes ({selectedUnivPrograms.length})</h4>
-                <div className="space-y-2">
-                  {selectedUnivPrograms.map((p) => (
-                    <div key={p.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold text-slate-900">{p.name}</div>
-                        <div className="text-slate-500">{p.level} • ${p.tuition?.toLocaleString()} • Deadline: {p.deadline}</div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setIsUnivModalOpen(false);
-                          handleStartCompose(p);
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-[#047857] text-white text-xs font-medium"
-                      >
-                        Draft Inquiry
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-2">Verified Admissions Contacts ({selectedUnivContacts.length})</h4>
-                <div className="space-y-1.5">
-                  {selectedUnivContacts.map((c) => (
-                    <div key={c.id} className="p-2.5 bg-slate-50 rounded border border-slate-100 flex justify-between">
-                      <div>
-                        <span className="font-medium text-slate-800">{c.name}</span>
-                        <span className="text-slate-400 ml-2 font-mono text-[11px]">{c.email}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-500">{c.role}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* PROGRAMME DETAILS MODAL */}
+      <ProgramDetailsModal
+        program={selectedDetailProg}
+        onClose={() => setSelectedDetailProg(null)}
+        onSendEmail={(prog) => {
+          setSelectedDetailProg(null);
+          handleStartCompose(prog);
+        }}
+      />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <RouterProvider>
+      <AppContent />
+    </RouterProvider>
   );
 }

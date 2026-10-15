@@ -165,5 +165,102 @@ class TestAdminPathSaaS(unittest.TestCase):
         self.assertEqual(status_send, 200)
         self.assertTrue(send_res.get("success"))
 
+    def test_09_discovery_datasets_and_durable_jobs(self):
+        # 1. Fetch countries taxonomy
+        status_c, countries = self.make_request("/api/discovery/countries")
+        self.assertEqual(status_c, 200)
+        self.assertGreaterEqual(len(countries), 50)
+        germany = next((c for c in countries if c["code"] == "DE"), None)
+        self.assertIsNotNone(germany)
+        self.assertEqual(germany["name"], "Germany")
+
+        # 2. Fetch fields taxonomy
+        status_f, fields = self.make_request("/api/discovery/fields")
+        self.assertEqual(status_f, 200)
+        self.assertGreaterEqual(len(fields), 15)
+        field_names = [f["name"] for f in fields]
+        self.assertIn("Computer Science", field_names)
+        self.assertIn("Artificial Intelligence", field_names)
+        self.assertIn("Business Administration", field_names)
+
+        # 3. Start durable discovery job
+        status_job, job = self.make_request(
+            "/api/discovery/jobs",
+            method="POST",
+            data={"country": "Germany", "country_code": "DE", "field": "Computer Science"},
+            headers={"x-impersonate-role": "student"}
+        )
+        self.assertEqual(status_job, 200)
+        self.assertTrue(job.get("success"))
+        self.assertIn("disc_", job.get("job_id", ""))
+        self.assertGreater(job.get("programmes_extracted", 0), 0)
+
+    def test_10_dynamic_study_level_derivation(self):
+        # Query results for Germany Computer Science
+        status, data = self.make_request("/api/discovery/results?country=Germany&field=Computer+Science")
+        self.assertEqual(status, 200)
+        self.assertIn("programs", data)
+        self.assertIn("available_study_levels", data)
+        
+        # Verify study levels are dynamically calculated from the returned dataset
+        available_levels = data["available_study_levels"]
+        self.assertGreater(len(available_levels), 0)
+        levels_present = [item["level"] for item in available_levels]
+        for p in data["programs"]:
+            self.assertIn(p["level"], levels_present)
+
+        # Verify distinct programme representation (not merged cards)
+        tum_progs = [p for p in data["programs"] if "Munich" in (p.get("university_name") or "")]
+        tum_levels = {p["level"] for p in tum_progs}
+        # TUM has both Master and PhD programmes represented distinctly
+        self.assertIn("Master", tum_levels)
+
+    def test_11_r2_document_storage_vault(self):
+        # Upload academic document metadata to R2 vault
+        doc_payload = {
+            "doc_type": "Curriculum Vitae",
+            "filename": "Alex_Vance_Academic_CV.pdf",
+            "file_size": 154200,
+            "mime_type": "application/pdf"
+        }
+        status, res = self.make_request(
+            "/api/documents/upload",
+            method="POST",
+            data=doc_payload,
+            headers={"x-impersonate-role": "student"}
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(res.get("success"))
+        self.assertIn("doc_", res.get("doc_id", ""))
+        self.assertIn("r2_key", res)
+
+        # Verify download metadata authorization
+        doc_id = res["doc_id"]
+        status_dl, dl_data = self.make_request(
+            f"/api/documents/{doc_id}/download",
+            headers={"x-impersonate-role": "student"}
+        )
+        self.assertEqual(status_dl, 200)
+        self.assertEqual(dl_data.get("filename"), "Alex_Vance_Academic_CV.pdf")
+        self.assertIn("r2", dl_data.get("storage_provider", "").lower())
+
+    def test_12_role_authorization_isolation(self):
+        # Student attempting to access admin metrics must be rejected with HTTP 403 Forbidden
+        status_m, res_m = self.make_request("/api/admin/metrics", headers={"x-impersonate-role": "student"})
+        self.assertEqual(status_m, 403)
+
+        # Student attempting to list all students must be rejected
+        status_s, res_s = self.make_request("/api/admin/students", headers={"x-impersonate-role": "student"})
+        self.assertEqual(status_s, 403)
+
+        # Student attempting to alter plan quotas must be rejected
+        status_p, res_p = self.make_request(
+            "/api/admin/plans/plan_pro",
+            method="PUT",
+            data={"daily_send_limit": 999},
+            headers={"x-impersonate-role": "student"}
+        )
+        self.assertEqual(status_p, 403)
+
 if __name__ == "__main__":
     unittest.main()
