@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   X,
   ExternalLink,
@@ -13,9 +13,9 @@ import {
   FileText,
   AlertCircle,
   CheckCircle2,
-  Users
-} from 'lucide-react';
-import { DiscoveredProgram } from './DiscoverView';
+  Users,
+} from "lucide-react";
+import { DiscoveredProgram } from "./DiscoverView";
 
 interface ProgramDetailsModalProps {
   program: DiscoveredProgram | null;
@@ -26,11 +26,11 @@ interface ProgramDetailsModalProps {
 export default function ProgramDetailsModal({
   program,
   onClose,
-  onSendEmail
+  onSendEmail,
 }: ProgramDetailsModalProps) {
   if (!program) return null;
 
-  const isPortalOnly = program.application_mode === 'portal_only';
+  const isPortalOnly = program.application_mode === "portal_only";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
@@ -46,7 +46,8 @@ export default function ProgramDetailsModal({
               <span>{program.subject_category}</span>
               <span>•</span>
               <span className="flex items-center gap-1 text-slate-500 font-normal">
-                <ShieldCheck className="h-3 w-3 text-emerald-600" /> Official Source Verified
+                <ShieldCheck className="h-3 w-3 text-emerald-600" /> Official
+                Source Verified
               </span>
             </div>
 
@@ -55,7 +56,9 @@ export default function ProgramDetailsModal({
             </h3>
             <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5 font-medium">
               <Building2 className="h-3.5 w-3.5 text-slate-400" />
-              {program.university_name} — {program.city ? `${program.city}, ` : ''}{program.country}
+              {program.university_name} -{" "}
+              {program.city ? `${program.city}, ` : ""}
+              {program.country}
             </p>
           </div>
 
@@ -74,16 +77,25 @@ export default function ProgramDetailsModal({
             <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 flex items-start gap-3">
               <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <strong className="font-semibold block mb-0.5">Official Portal Required for Formal Application</strong>
-                This institution requires formal application submission through their university admissions portal. Inquiry emails sent via AdminPath serve strictly to request guidance regarding eligibility, department assistantships, or research supervision.
+                <strong className="font-semibold block mb-0.5">
+                  Official Portal Required for Formal Application
+                </strong>
+                This institution requires formal application submission through
+                their university admissions portal. Inquiry emails sent via
+                AdminPath serve strictly to request guidance regarding
+                eligibility, department assistantships, or research supervision.
               </div>
             </div>
           ) : (
             <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 flex items-start gap-3">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
               <div>
-                <strong className="font-semibold block mb-0.5">Direct Admissions Inquiries Welcomed</strong>
-                The department actively encourages prospective graduate and research scholars to communicate with admissions coordinators prior to formal filing.
+                <strong className="font-semibold block mb-0.5">
+                  Direct Admissions Inquiries Welcomed
+                </strong>
+                The department actively encourages prospective graduate and
+                research scholars to communicate with admissions coordinators
+                prior to formal filing.
               </div>
             </div>
           )}
@@ -91,30 +103,44 @@ export default function ProgramDetailsModal({
           {/* Quick Specifications */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Study Level</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
+                Study Level
+              </span>
               <span className="font-semibold text-slate-800 text-xs">
-                {program.level === 'Bachelor' ? "Bachelor's" : program.level === 'Master' ? "Master's" : program.level}
+                {program.level === "Bachelor"
+                  ? "Bachelor's"
+                  : program.level === "Master"
+                    ? "Master's"
+                    : program.level}
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Annual Tuition</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
+                Annual Tuition
+              </span>
               <span className="font-semibold text-slate-800 text-xs">
-                {program.tuition ? `$${program.tuition.toLocaleString()} USD` : 'Not available'}
+                {program.tuition
+                  ? `$${program.tuition.toLocaleString()} USD`
+                  : "Not available"}
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Duration</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
+                Duration
+              </span>
               <span className="font-semibold text-slate-800 text-xs">
                 {program.duration_months} Months
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Application Deadline</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
+                Application Deadline
+              </span>
               <span className="font-semibold text-slate-800 text-xs">
-                {program.deadline || 'Rolling basis'}
+                {program.deadline || "Rolling basis"}
               </span>
             </div>
           </div>
@@ -125,7 +151,11 @@ export default function ProgramDetailsModal({
               Department & Academic Discipline
             </h4>
             <p className="text-slate-600">
-              Offered by <strong>{program.department || 'Academic Faculty'}</strong> under the subject classification <strong>{program.subject_category}</strong>. Language of instruction is <strong>{program.language}</strong>.
+              Offered by{" "}
+              <strong>{program.department || "Academic Faculty"}</strong> under
+              the subject classification{" "}
+              <strong>{program.subject_category}</strong>. Language of
+              instruction is <strong>{program.language}</strong>.
             </p>
           </div>
 
@@ -135,7 +165,8 @@ export default function ProgramDetailsModal({
               Admission Requirements & Criteria
             </h4>
             <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-700">
-              {program.requirements || 'Recognized undergraduate degree in a related discipline, academic transcripts, proof of language proficiency, and statement of academic intent.'}
+              {program.requirements ||
+                "Recognized undergraduate degree in a related discipline, academic transcripts, proof of language proficiency, and statement of academic intent."}
             </div>
           </div>
 
@@ -147,7 +178,9 @@ export default function ProgramDetailsModal({
             <div className="space-y-1.5 text-xs text-slate-600">
               {program.program_url && (
                 <div className="flex items-center justify-between p-2 rounded-md bg-white border border-slate-200">
-                  <span className="font-medium truncate mr-2">Official Programme Catalogue</span>
+                  <span className="font-medium truncate mr-2">
+                    Official Programme Catalogue
+                  </span>
                   <a
                     href={program.program_url}
                     target="_blank"
@@ -161,7 +194,9 @@ export default function ProgramDetailsModal({
 
               {program.admissions_url && (
                 <div className="flex items-center justify-between p-2 rounded-md bg-white border border-slate-200">
-                  <span className="font-medium truncate mr-2">Admissions Office Portal</span>
+                  <span className="font-medium truncate mr-2">
+                    Admissions Office Portal
+                  </span>
                   <a
                     href={program.admissions_url}
                     target="_blank"
@@ -174,7 +209,11 @@ export default function ProgramDetailsModal({
               )}
 
               <div className="text-[11px] text-slate-400 pt-1">
-                Last verified from official institutional source on {program.last_verified ? new Date(program.last_verified).toLocaleDateString() : 'October 2026'}.
+                Last verified from official institutional source on{" "}
+                {program.last_verified
+                  ? new Date(program.last_verified).toLocaleDateString()
+                  : "October 2026"}
+                .
               </div>
             </div>
           </div>
