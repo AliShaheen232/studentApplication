@@ -1,56 +1,92 @@
-# AdmitPath - Global University Admissions & Outreach Engine
+# AdminPath — Global University Admissions & Outreach SaaS Platform
 
-AdmitPath is a full-stack platform that helps students discover universities and academic programs worldwide, extract verified public admissions contacts, and draft compliant, personalized outreach inquiries from their own Gmail account.
+AdminPath is a production-oriented, subscription-based SaaS platform through which administrators manage individual student accounts, discover worldwide university programmes, generate curriculum-tailored AI application inquiries, and send deliverability-protected emails directly through each student's personal Gmail account.
 
-## Core Features & Architecture
+---
 
-1. **Worldwide University Directory**:
-   - Seeded from open datasets across 16 countries: USA, Canada, UK, Germany, Netherlands, France, Italy, Spain, Sweden, Finland, Ireland, Australia, South Korea, Indonesia, Malaysia, and South Africa.
-   - Comprehensive program details, tuition ranges, language requirements, and application deadlines.
-2. **Polite Web Crawler & Public Contact Finder**:
-   - Respects `robots.txt` Disallow directives.
-   - Throttles per-domain concurrency (1-2) with polite random delay backoff.
-   - Categorizes public emails into `role` (e.g. `admissions@`, `gradschool@`) versus `personal` faculty contacts.
-   - Strict compliance: never probes mail servers, never guesses email patterns, never scrapes behind authentication.
-3. **Student Profile & Admissions Matcher**:
-   - Detailed academic profile (GPA, nationality, target degree level, subject interests, budget, English proficiency scores, research experience).
-   - Multi-factor algorithm scoring program compatibility (0-100%) with transparent decision reasons and factor breakdowns.
-4. **Document Vault**:
-   - Stores CVs, transcripts, degree certificates, and motivation letters.
-   - Enforces a 20 MB size limit per email package and validates MIME types.
-5. **Personalized Email Composer & Review Workflow**:
-   - Generates personalized drafts combining student background + university curriculum + custom faculty/lab hooks.
-   - Multiple template variants: Admissions Inquiry, Research / Lab Fit, and Scholarship / Funding.
-   - Generates RFC 2822 dual-part MIME messages (accessible HTML + plain-text fallback).
-   - Enforces mandatory student sender signature and anti-spam opt-out footer (*"Reply 'stop' and I will not write again"*).
-   - Mandatory human approval gate before queuing.
-6. **Deliverability Protection & Timezone Windows**:
-   - Warm-up ramp schedule: 20 -> 30 -> 40 emails/day max.
-   - Random delivery gaps of 60 to 240 seconds to prevent burst spam detection.
-   - Recipient local timezone window enforcement: sends exclusively between 08:00 and 17:00 recipient business hours.
-   - 7-day minimum follow-up spacing constraint per university recipient.
-   - Automated pause circuit breaker if the bounce/NDR rate exceeds 5.0%.
-7. **Compliance & Privacy**:
-   - Permanent global and per-student Do-Not-Contact suppression list.
-   - Automatic opt-out detection from replies containing "stop" or "unsubscribe".
-   - Full GDPR Article 15 Data Subject Access Request export (JSON).
-   - GDPR Article 17 Right to Erasure ("Right to be Forgotten") one-click account deletion.
-   - Disclosures covering GDPR/PECR, CASL, and CAN-SPAM.
+## 1. Product Vision & Architecture
 
-## Running the Application
+- **Multi-Role RBAC:**
+  - **Administrator (`admin`)**: Responsible for student account provisioning, configuring verified academic records (GPA, degree qualifications, research achievements, target countries), assigning subscription tiers, monitoring queue dispatch health, adjusting sending caps, and reviewing immutable audit logs.
+  - **Student (`student`)**: Accesses an authenticated portal with a strictly **read-only** profile (modifications blocked both on frontend and via backend 403 enforcement), discovers global universities and programmes across all disciplines, reviews AI-crafted application drafts, connects their personal Gmail account via OAuth 2.0, and executes queue sending via the prominent **Start Sending** control.
+- **Public Website & Subscription Billing:**
+  - Includes Landing Page, Features, 4-Step Workflow, Interactive Pricing (Monthly & Annual intervals), Terms of Service, Privacy Policy (GDPR/CASL), and Support.
+  - Configurable subscription plans: *Starter Scholar* ($29/mo, 10/day cap), *Scholar Pro* ($69/mo, 25/day cap), and *Global Fellow* ($149/mo, 40/day cap).
+  - Idempotent payment webhook processing (`/api/webhooks/payment`) with duplicate event prevention. Confirmed purchases generate unprovisioned records awaiting administrator review.
+- **Dedicated Gmail Account Integration:**
+  - Dedicated "Gmail Account" tab for students to connect, inspect authorization health, send verification test emails, and disconnect.
+  - Uses least-privilege `gmail.send` and `userinfo.email` scopes.
+  - OAuth tokens are encrypted at rest with AES-256-GCM.
+- **Atomic Quota Enforcement & Safeguards:**
+  - "Start Sending" batch execution endpoint (`/api/queue/start-sending`) enforces daily and monthly subscription quotas atomically.
+  - Enforces 60–240s randomized delivery intervals, recipient local timezone window constraints (08:00–17:00), 7-day follow-up spacing, bounce circuit breaker (>5.0%), and permanent Do-Not-Contact suppression lists.
+- **SSRF Defense:**
+  - Polite catalog crawler validates destination URLs and strictly blocks cloud metadata (`169.254.169.254`), loopback (`127.0.0.1`), and private RFC1918 subnets (`10.0.0.0/8`, `192.168.0.0/16`, `172.16.0.0/12`).
 
-### Dev Server (Vite + Express on Port 3000)
+---
+
+## 2. Setup & Local Development
+
+### Prerequisites
+- Node.js 22.x
+- Python 3.10+ (for Python core utilities & legacy test suite)
+- npm
+
+### Installation
+```bash
+npm install
+```
+
+### Environment Configuration
+Copy `.env.example` to `.env` and configure your credentials:
+```bash
+cp .env.example .env
+```
+
+### Running the Application
+Start the unified full-stack development server on port 3000:
 ```bash
 npm run dev
 ```
 
-### Python Core CLI & WSGI Server
+### Building for Production
 ```bash
-python3 app.py
+npm run build
+npm start
 ```
 
-### Running the Test Suite
+---
+
+## 3. Seed Accounts for Testing
+
+| Role | Email | Password | Entitlements |
+|---|---|---|---|
+| **Administrator** | `admin@admitpath.app` | `AdminMaster2026!` | Full provisioning & system controls |
+| **Demo Student** | `scholar@admitpath.app` | `ScholarPass2026` | Scholar Pro plan (25 emails/day) |
+
+*(An interactive role switcher pill is also provided in the top header for instant one-click preview testing.)*
+
+---
+
+## 4. Automated Testing
+
+### Run All Unit & SaaS Integration Tests
 ```bash
+# Run complete test suite (33 passing tests)
 python3 -m unittest discover tests
+
+# Or run SaaS feature suite directly:
+python3 -m unittest tests/test_saas_features.py
 ```
-Or view the live test runner inside the **Docs & Unit Tests** tab of the UI.
+
+### Type Checking & Linting
+```bash
+npm run lint
+```
+
+---
+
+## 5. Required Development Documentation
+
+Full development history, architectural decisions, and step-by-step audit logs are continuously recorded in:
+- `AdminPath_SaaS_Development_Log.md`
