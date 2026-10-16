@@ -2141,206 +2141,6 @@ app.put("/api/profile", requireAuth, (req, res) => {
   res.json({ success: true });
 });
 
-// 5b. Academic Discovery Engine & Durable Jobs APIs
-app.get("/api/discovery/countries", (req, res) => {
-  res.json(GLOBAL_COUNTRIES);
-});
-
-app.get("/api/discovery/fields", (req, res) => {
-  res.json(FIELDS_OF_STUDY);
-});
-
-app.post("/api/discovery/jobs", requireAuth, (req, res) => {
-  const user = (req as any).user;
-  const { country, country_code, field } = req.body;
-
-  if (!country || !field) {
-    return res
-      .status(400)
-      .json({ error: "Country and academic field of study are required." });
-  }
-
-  // Ensure extended catalog is seeded into db
-  syncExtendedCatalog();
-
-  const matchingUnivs = db
-    .prepare(
-      `
-    SELECT * FROM universities 
-    WHERE LOWER(country) = LOWER(?) OR LOWER(country_code) = LOWER(?) OR LOWER(country) LIKE ?
-  `,
-    )
-    .all(country, country_code || "", `%${country}%`) as any[];
-
-  const matchingProgs = db
-    .prepare(
-      `
-    SELECT p.*, u.name as university_name, u.country
-    FROM programs p
-    JOIN universities u ON p.university_id = u.id
-    WHERE (LOWER(u.country) = LOWER(?) OR LOWER(u.country_code) = LOWER(?) OR LOWER(u.country) LIKE ?)
-      AND (
-        LOWER(p.subject_category) LIKE LOWER(?) 
-        OR LOWER(p.name) LIKE LOWER(?)
-        OR LOWER(p.department) LIKE LOWER(?)
-        OR LOWER(?) LIKE '%' || LOWER(p.subject_category) || '%'
-      )
-  `,
-    )
-    .all(
-      country,
-      country_code || "",
-      `%${country}%`,
-      `%${field}%`,
-      `%${field}%`,
-      `%${field}%`,
-      field,
-    ) as any[];
-
-  const jobId = "disc_" + crypto.randomBytes(8).toString("hex");
-  const now = new Date().toISOString().replace("T", " ").slice(0, 19);
-  const univCount = Math.max(matchingUnivs.length, 3);
-  const progCount = Math.max(matchingProgs.length, 4);
-  const pageCount = univCount * 3;
-
-  db.prepare(
-    `
-    INSERT INTO discovery_jobs (
-      id, student_id, country, country_code, field, parameters_json,
-      status, current_stage, institutions_discovered, programmes_extracted,
-      pages_inspected, started_at, completed_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, 'completed', 'catalog_verified', ?, ?, ?, ?, ?)
-  `,
-  ).run(
-    jobId,
-    user.id,
-    country,
-    country_code || "",
-    field,
-    JSON.stringify({ country, country_code, field }),
-    univCount,
-    progCount,
-    pageCount,
-    now,
-    now,
-  );
-
-  res.json({
-    success: true,
-    job_id: jobId,
-    status: "completed",
-    institutions_discovered: univCount,
-    programmes_extracted: progCount,
-    pages_inspected: pageCount,
-    country,
-    field,
-    message: `Discovery job completed. Found ${univCount} institutions and ${progCount} accredited programmes.`,
-  });
-});
-
-app.get("/api/discovery/jobs", requireAuth, (req, res) => {
-  const user = (req as any).user;
-  const jobs = db
-    .prepare(
-      `
-    SELECT * FROM discovery_jobs 
-    WHERE student_id = ? 
-    ORDER BY started_at DESC
-  `,
-    )
-    .all(user.id);
-  res.json(jobs);
-});
-
-app.get("/api/discovery/results", (req, res) => {
-  const { country, field, level, keyword } = req.query;
-  syncExtendedCatalog();
-
-  let query = `
-    SELECT p.*, u.name as university_name, u.country, u.city, u.website, u.domain, u.ranking
-    FROM programs p
-    JOIN universities u ON p.university_id = u.id
-    WHERE 1=1
-  `;
-  const params: any[] = [];
-
-  if (country && country !== "all") {
-    query +=
-      " AND (LOWER(u.country) = LOWER(?) OR LOWER(u.country_code) = LOWER(?) OR LOWER(u.country) LIKE ?)";
-    params.push(country, country, `%${country}%`);
-  }
-
-  if (field && field !== "all") {
-    query += ` AND (
-      LOWER(p.subject_category) LIKE LOWER(?) 
-      OR LOWER(p.name) LIKE LOWER(?)
-      OR LOWER(p.department) LIKE LOWER(?)
-      OR LOWER(?) LIKE '%' || LOWER(p.subject_category) || '%'
-    )`;
-    params.push(`%${field}%`, `%${field}%`, `%${field}%`, field);
-  }
-
-  if (keyword) {
-    query +=
-      " AND (LOWER(p.name) LIKE LOWER(?) OR LOWER(u.name) LIKE LOWER(?) OR LOWER(p.department) LIKE LOWER(?))";
-    params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
-  }
-
-  const allMatching = db
-    .prepare(query + " ORDER BY u.ranking ASC, p.name ASC")
-    .all(...params) as any[];
-
-  // Dynamic derivation of study levels present in the actual results set
-  const levelCounts: Record<string, number> = {};
-  for (const prog of allMatching) {
-    const lvl = prog.level || "Master";
-    levelCounts[lvl] = (levelCounts[lvl] || 0) + 1;
-  }
-
-  const availableStudyLevels = Object.entries(levelCounts).map(
-    ([lvl, count]) => ({
-      level: lvl,
-      count,
-    }),
-  );
-
-  // If level filter specified, filter results
-  let filtered = allMatching;
-  if (level && level !== "all") {
-    filtered = allMatching.filter(
-      (p) => p.level?.toLowerCase() === (level as string).toLowerCase(),
-    );
-  }
-
-  // Attach contacts to each program for seamless outbox / inquiry drafting
-  const programsWithContacts = filtered.map((prog) => {
-    const contact = db
-      .prepare(
-        `
-      SELECT * FROM contacts 
-      WHERE university_id = ? 
-      ORDER BY CASE WHEN email_type = 'role' THEN 0 ELSE 1 END, id ASC 
-      LIMIT 1
-    `,
-      )
-      .get(prog.university_id) as any;
-
-    return {
-      ...prog,
-      contact: contact || null,
-    };
-  });
-
-  res.json({
-    programs: programsWithContacts,
-    available_study_levels: availableStudyLevels,
-    country: country || null,
-    field: field || null,
-    total: programsWithContacts.length,
-  });
-});
-
 // 6. Universities & Programs API with SSRF defenses
 app.get("/api/universities", (req, res) => {
   const { country, q, min_tuition, max_tuition } = req.query;
@@ -4039,9 +3839,28 @@ async function startServer() {
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
-  } else {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        watch:
+          process.env.DISABLE_HMR === "true"
+            ? null
+            : {
+                ignored: [
+                  "**/*.db",
+                  "**/*.db-*",
+                  "**/*.sqlite",
+                  "**/*.sqlite-*",
+                  "**/admitpath.db*",
+                  "**/*.wal",
+                  "**/*.shm",
+                  "**/*.py",
+                  "**/*.pyc",
+                  "**/__pycache__/**",
+                  "**/.git/**",
+                ],
+              },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);

@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+admitpath.db*
+__pycache__/
+*.pyc
