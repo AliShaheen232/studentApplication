@@ -307,4 +307,16 @@
 - **Discovery Taxonomy & Durable Jobs**: Verified with automated test (test_09).
 - **Dynamic Study Level Derivation**: Verified with automated test (test_10).
 - **Cloudflare R2 Document Vault Storage**: Verified with automated test (test_11).
+
+### Step 19 — Unified Brand Icon Across Favicon, Navbar, and Footer
+
+- **Date/Time:** 2026-10-15 08:57
+- **Objective:** Standardize a single vector favicon asset across the entire application so that the exact same emblem renders in the browser tab (favicon), public landing navbar, student sidebar/topbar navigation, administrator header, and all footers.
+- **Files Created/Modified:**
+  - `src/components/BrandIcon.tsx`: Created reusable brand icon component rendering `/favicon.svg` with customizable size classes and responsive styling.
+  - `index.html`: Added standard, alternate, and Apple touch icon references to `/favicon.svg`.
+  - `src/components/PublicWebsite.tsx`: Replaced generic icon in top navbar and dark footer with `BrandIcon` pointing directly to `/favicon.svg`.
+  - `src/App.tsx`: Updated sidebar brand header and mobile header bar, and added an application footer with `BrandIcon`.
+  - `src/components/AdminDashboard.tsx`: Added `BrandIcon` to administrator console header and footer.
+- **Verification:** `lint_applet` (0 errors), `compile_applet` (successful build), `curl /favicon.svg` (200 OK), and 37/37 unit tests passing.
 - **UI Responsiveness & Navigation**: Verified in React 19 component tree.

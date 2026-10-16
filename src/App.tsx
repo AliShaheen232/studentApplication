@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Compass,
   GraduationCap,
@@ -40,17 +40,18 @@ import {
   CreditCard,
   Calendar,
   DollarSign,
-  Info
-} from 'lucide-react';
+  Info,
+} from "lucide-react";
 
-import { RouterProvider, useRouter, AppSurface } from './router';
-import PublicWebsite from './components/PublicWebsite';
-import AdminDashboard from './components/AdminDashboard';
-import StudentProfile from './components/StudentProfile';
-import GmailTab from './components/GmailTab';
-import StartSendingModal from './components/StartSendingModal';
-import DiscoverView, { DiscoveredProgram } from './components/DiscoverView';
-import ProgramDetailsModal from './components/ProgramDetailsModal';
+import { RouterProvider, useRouter, AppSurface } from "./router";
+import PublicWebsite from "./components/PublicWebsite";
+import AdminDashboard from "./components/AdminDashboard";
+import StudentProfile from "./components/StudentProfile";
+import GmailTab from "./components/GmailTab";
+import StartSendingModal from "./components/StartSendingModal";
+import DiscoverView, { DiscoveredProgram } from "./components/DiscoverView";
+import ProgramDetailsModal from "./components/ProgramDetailsModal";
+import BrandIcon from "./components/BrandIcon";
 
 interface University {
   id: string;
@@ -136,7 +137,7 @@ function AppContent() {
     items: [],
     daily_cap: 25,
     monthly_cap: 400,
-    plan_name: 'Scholar Pro',
+    plan_name: "Scholar Pro",
     sent_today: 0,
     remaining_daily_quota: 25,
   });
@@ -146,52 +147,58 @@ function AppContent() {
     bounce_rate: 0,
   });
   const [profile, setProfile] = useState<any>({
-    full_name: 'Alex Vance',
-    nationality: 'Indonesia',
-    country_of_residence: 'Indonesia',
+    full_name: "Alex Vance",
+    nationality: "Indonesia",
+    country_of_residence: "Indonesia",
     gpa: 3.86,
     max_gpa: 4.0,
-    qualification: 'Bachelor of Science in Computer Science',
-    target_level: 'Master',
-    intake_term: 'Fall 2026',
-    subjects: 'Computer Science, Data Science & AI',
-    countries: 'USA, United Kingdom, Germany, Canada',
-    preferred_universities: 'MIT, Stanford, Oxford, TU Munich',
+    qualification: "Bachelor of Science in Computer Science",
+    target_level: "Master",
+    intake_term: "Fall 2026",
+    subjects: "Computer Science, Data Science & AI",
+    countries: "USA, United Kingdom, Germany, Canada",
+    preferred_universities: "MIT, Stanford, Oxford, TU Munich",
     budget_max: 45000,
     ielts_score: 7.5,
     toefl_score: 105,
-    experience: '2 years applied software engineering and undergraduate ML research assistant',
-    academic_achievements: "Dean's List for 6 semesters, Regional IEEE paper author",
-    additional_preferences: 'Departmental Graduate Assistantship desired',
+    experience:
+      "2 years applied software engineering and undergraduate ML research assistant",
+    academic_achievements:
+      "Dean's List for 6 semesters, Regional IEEE paper author",
+    additional_preferences: "Departmental Graduate Assistantship desired",
   });
   const [documents, setDocuments] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({
     daily_cap: 25,
     ramp_stage: 1,
     gmail_connected: 1,
-    gmail_email: 'alex.scholar@gmail.com',
+    gmail_email: "alex.scholar@gmail.com",
   });
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [suppressionList, setSuppressionList] = useState<any[]>([]);
 
   // Modals & Selections
-  const [selectedDetailProg, setSelectedDetailProg] = useState<DiscoveredProgram | null>(null);
+  const [selectedDetailProg, setSelectedDetailProg] =
+    useState<DiscoveredProgram | null>(null);
   const [isStartSendingOpen, setIsStartSendingOpen] = useState(false);
 
   // Programmes Catalog Filter State
-  const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
-  const [catalogCountryFilter, setCatalogCountryFilter] = useState('all');
-  const [catalogLevelFilter, setCatalogLevelFilter] = useState('all');
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
+  const [catalogCountryFilter, setCatalogCountryFilter] = useState("all");
+  const [catalogLevelFilter, setCatalogLevelFilter] = useState("all");
 
   // Composer State
-  const [composeTargetProg, setComposeTargetProg] = useState<Program | null>(null);
-  const [composeTargetContact, setComposeTargetContact] = useState<Contact | null>(null);
-  const [composeTemplate, setComposeTemplate] = useState('academic_inquiry');
-  const [customHook, setCustomHook] = useState('');
-  const [draftSubject, setDraftSubject] = useState('');
-  const [draftBodyText, setDraftBodyText] = useState('');
-  const [draftBodyHtml, setDraftBodyHtml] = useState('');
-  const [previewMode, setPreviewMode] = useState<'text' | 'html'>('html');
+  const [composeTargetProg, setComposeTargetProg] = useState<Program | null>(
+    null,
+  );
+  const [composeTargetContact, setComposeTargetContact] =
+    useState<Contact | null>(null);
+  const [composeTemplate, setComposeTemplate] = useState("academic_inquiry");
+  const [customHook, setCustomHook] = useState("");
+  const [draftSubject, setDraftSubject] = useState("");
+  const [draftBodyText, setDraftBodyText] = useState("");
+  const [draftBodyHtml, setDraftBodyHtml] = useState("");
+  const [previewMode, setPreviewMode] = useState<"text" | "html">("html");
   const [portalNotice, setPortalNotice] = useState<string | null>(null);
 
   // Status Notification
@@ -205,7 +212,7 @@ function AppContent() {
   // Initial Data Fetching
   const fetchAllData = async () => {
     try {
-      const headers = { 'x-impersonate-role': 'student' };
+      const headers = { "x-impersonate-role": "student" };
       const [
         uRes,
         pRes,
@@ -219,17 +226,17 @@ function AppContent() {
         settRes,
         suppRes,
       ] = await Promise.all([
-        fetch('/api/universities'),
-        fetch('/api/programs'),
-        fetch('/api/contacts'),
-        fetch('/api/profile', { headers }),
-        fetch('/api/documents', { headers }),
-        fetch('/api/shortlists', { headers }),
-        fetch('/api/drafts', { headers }),
-        fetch('/api/queue', { headers }),
-        fetch('/api/sent', { headers }),
-        fetch('/api/gmail/status', { headers }),
-        fetch('/api/compliance/suppression', { headers }),
+        fetch("/api/universities"),
+        fetch("/api/programs"),
+        fetch("/api/contacts"),
+        fetch("/api/profile", { headers }),
+        fetch("/api/documents", { headers }),
+        fetch("/api/shortlists", { headers }),
+        fetch("/api/drafts", { headers }),
+        fetch("/api/queue", { headers }),
+        fetch("/api/sent", { headers }),
+        fetch("/api/gmail/status", { headers }),
+        fetch("/api/compliance/suppression", { headers }),
       ]);
 
       if (uRes.ok) setUniversities(await uRes.json());
@@ -251,7 +258,7 @@ function AppContent() {
       }
       if (suppRes.ok) setSuppressionList(await suppRes.json());
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error("Error fetching data:", err);
     }
   };
 
@@ -261,8 +268,8 @@ function AppContent() {
 
   // Fetch matches whenever on /matches
   useEffect(() => {
-    if (path.startsWith('/matches')) {
-      fetch('/api/matcher', { headers: { 'x-impersonate-role': 'student' } })
+    if (path.startsWith("/matches")) {
+      fetch("/api/matcher", { headers: { "x-impersonate-role": "student" } })
         .then((r) => r.json())
         .then((data) => setMatches(data))
         .catch(console.error);
@@ -273,23 +280,27 @@ function AppContent() {
   const handleStartCompose = (prog: Program | DiscoveredProgram) => {
     setComposeTargetProg(prog as Program);
     const targetContact =
-      contacts.find((c) => c.university_id === prog.university_id) || contacts[0];
+      contacts.find((c) => c.university_id === prog.university_id) ||
+      contacts[0];
     setComposeTargetContact(targetContact || null);
     generateDraft(prog as Program, targetContact, composeTemplate, customHook);
-    navigate('/emails');
+    navigate("/emails");
   };
 
   const generateDraft = async (
     prog: Program | null,
     cont: Contact | null,
     tpl: string,
-    hookText: string
+    hookText: string,
   ) => {
     if (!prog) return;
     try {
-      const res = await fetch('/api/compose/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-impersonate-role': 'student' },
+      const res = await fetch("/api/compose/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-impersonate-role": "student",
+        },
         body: JSON.stringify({
           program_id: prog.id,
           contact_id: cont?.id,
@@ -311,9 +322,12 @@ function AppContent() {
   const handleApproveDraft = async () => {
     if (!composeTargetProg) return;
     try {
-      const saveRes = await fetch('/api/drafts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-impersonate-role': 'student' },
+      const saveRes = await fetch("/api/drafts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-impersonate-role": "student",
+        },
         body: JSON.stringify({
           program_id: composeTargetProg.id,
           contact_id: composeTargetContact?.id,
@@ -327,14 +341,14 @@ function AppContent() {
       const saveData = await saveRes.json();
       if (saveData.draft_id) {
         const appRes = await fetch(`/api/drafts/${saveData.draft_id}/approve`, {
-          method: 'POST',
-          headers: { 'x-impersonate-role': 'student' }
+          method: "POST",
+          headers: { "x-impersonate-role": "student" },
         });
         const appData = await appRes.json();
         if (appRes.ok) {
           showNotify(appData.message);
           fetchAllData();
-          navigate('/outbox');
+          navigate("/outbox");
         } else {
           showNotify(`Error: ${appData.error}`);
         }
@@ -348,8 +362,8 @@ function AppContent() {
   const handleSendQueueItem = async (itemId: string) => {
     try {
       const res = await fetch(`/api/queue/${itemId}/send-now`, {
-        method: 'POST',
-        headers: { 'x-impersonate-role': 'student' }
+        method: "POST",
+        headers: { "x-impersonate-role": "student" },
       });
       const data = await res.json();
       if (res.ok) {
@@ -363,46 +377,64 @@ function AppContent() {
     }
   };
   // Document Vault Actions
-  const handleUploadDoc = async (docType: string, filename: string, size: number, mimeType: string) => {
-    const res = await fetch('/api/documents/upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-impersonate-role': 'student' },
+  const handleUploadDoc = async (
+    docType: string,
+    filename: string,
+    size: number,
+    mimeType: string,
+  ) => {
+    const res = await fetch("/api/documents/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-impersonate-role": "student",
+      },
       body: JSON.stringify({
         doc_type: docType,
         filename,
         file_size: size,
-        mime_type: mimeType
-      })
+        mime_type: mimeType,
+      }),
     });
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error || 'Upload failed');
+      throw new Error(err.error || "Upload failed");
     }
-    const updated = await fetch('/api/documents', { headers: { 'x-impersonate-role': 'student' } }).then(r => r.json());
+    const updated = await fetch("/api/documents", {
+      headers: { "x-impersonate-role": "student" },
+    }).then((r) => r.json());
     setDocuments(updated);
   };
 
   const handleDeleteDoc = async (docId: string) => {
     await fetch(`/api/documents/${docId}`, {
-      method: 'DELETE',
-      headers: { 'x-impersonate-role': 'student' }
+      method: "DELETE",
+      headers: { "x-impersonate-role": "student" },
     });
-    const updated = await fetch('/api/documents', { headers: { 'x-impersonate-role': 'student' } }).then(r => r.json());
+    const updated = await fetch("/api/documents", {
+      headers: { "x-impersonate-role": "student" },
+    }).then((r) => r.json());
     setDocuments(updated);
-    showNotify('Document removed from vault.');
+    showNotify("Document removed from vault.");
   };
 
   // Filter Catalog Programmes
   const filteredCatalogPrograms = programs.filter((p) => {
-    if (catalogCountryFilter !== 'all' && p.country?.toLowerCase() !== catalogCountryFilter.toLowerCase())
+    if (
+      catalogCountryFilter !== "all" &&
+      p.country?.toLowerCase() !== catalogCountryFilter.toLowerCase()
+    )
       return false;
-    if (catalogLevelFilter !== 'all' && p.level?.toLowerCase() !== catalogLevelFilter.toLowerCase())
+    if (
+      catalogLevelFilter !== "all" &&
+      p.level?.toLowerCase() !== catalogLevelFilter.toLowerCase()
+    )
       return false;
     if (catalogSearchQuery) {
       const q = catalogSearchQuery.toLowerCase();
       const matchName = p.name.toLowerCase().includes(q);
-      const matchUniv = (p.university_name || '').toLowerCase().includes(q);
-      const matchDept = (p.department || '').toLowerCase().includes(q);
+      const matchUniv = (p.university_name || "").toLowerCase().includes(q);
+      const matchDept = (p.department || "").toLowerCase().includes(q);
       if (!matchName && !matchUniv && !matchDept) return false;
     }
     return true;
@@ -411,13 +443,15 @@ function AppContent() {
   // -------------------------------------------------------------
   // SURFACE 1: PUBLIC WEBSITE (Landing, Pricing, Checkout)
   // -------------------------------------------------------------
-  if (surface === 'public') {
+  if (surface === "public") {
     return (
       <PublicWebsite
-        onSignInClick={() => navigate('/dashboard')}
+        onSignInClick={() => navigate("/dashboard")}
         onSelectPlan={(planId) => {
-          showNotify(`Plan ${planId} selected. Complete checkout to provision student access.`);
-          navigate('/dashboard');
+          showNotify(
+            `Plan ${planId} selected. Complete checkout to provision student access.`,
+          );
+          navigate("/dashboard");
         }}
       />
     );
@@ -426,7 +460,7 @@ function AppContent() {
   // -------------------------------------------------------------
   // SURFACE 2: ADMINISTRATOR DASHBOARD
   // -------------------------------------------------------------
-  if (surface === 'admin') {
+  if (surface === "admin") {
     return <AdminDashboard onNotify={showNotify} />;
   }
 
@@ -436,23 +470,23 @@ function AppContent() {
   // "The student application must not contain buttons that switch
   // between Student View, Admin View, and Public Site."
   // -------------------------------------------------------------
-  const activeStudentTab = path.startsWith('/discover')
-    ? 'discover'
-    : path.startsWith('/programmes')
-    ? 'programmes'
-    : path.startsWith('/matches')
-    ? 'matches'
-    : path.startsWith('/emails')
-    ? 'emails'
-    : path.startsWith('/outbox')
-    ? 'outbox'
-    : path.startsWith('/gmail')
-    ? 'gmail'
-    : path.startsWith('/profile')
-    ? 'profile'
-    : path.startsWith('/settings')
-    ? 'settings'
-    : 'dashboard';
+  const activeStudentTab = path.startsWith("/discover")
+    ? "discover"
+    : path.startsWith("/programmes")
+      ? "programmes"
+      : path.startsWith("/matches")
+        ? "matches"
+        : path.startsWith("/emails")
+          ? "emails"
+          : path.startsWith("/outbox")
+            ? "outbox"
+            : path.startsWith("/gmail")
+              ? "gmail"
+              : path.startsWith("/profile")
+                ? "profile"
+                : path.startsWith("/settings")
+                  ? "settings"
+                  : "dashboard";
 
   return (
     <div className="min-h-screen bg-[#f4f6f8] text-slate-800 flex font-sans selection:bg-emerald-700 selection:text-white antialiased">
@@ -469,8 +503,8 @@ function AppContent() {
         className={`
         fixed lg:sticky top-0 h-screen z-50 flex flex-col justify-between shrink-0
         bg-white border-r border-slate-200 transition-all duration-300 ease-in-out
-        ${isSidebarOpen ? 'w-56' : 'w-20'}
-        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${isSidebarOpen ? "w-56" : "w-20"}
+        ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}
       >
         <div>
@@ -486,9 +520,7 @@ function AppContent() {
               </button>
 
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 shrink-0 rounded-md bg-slate-900 flex items-center justify-center text-white shadow-xs">
-                  <Shield className="h-3.5 w-3.5 text-emerald-400" />
-                </div>
+                <BrandIcon size="sm" />
                 {isSidebarOpen && (
                   <span className="font-serif-editorial text-lg font-bold tracking-tight text-slate-900 truncate">
                     AdminPath
@@ -508,21 +540,58 @@ function AppContent() {
           {/* Navigation Links for Students */}
           <div className="p-3 space-y-1">
             {[
-              { path: '/dashboard', id: 'dashboard', label: 'Daily', icon: Activity },
-              { path: '/discover', id: 'discover', label: 'Discover', icon: Search },
-              { path: '/programmes', id: 'programmes', label: 'Programmes', icon: GraduationCap },
-              { path: '/emails', id: 'emails', label: 'Emails', icon: Mail },
               {
-                path: '/outbox',
-                id: 'outbox',
-                label: 'Outbox',
-                icon: Send,
-                badge: queueData.items?.filter((i: any) => i.status === 'pending')?.length,
+                path: "/dashboard",
+                id: "dashboard",
+                label: "Daily",
+                icon: Activity,
               },
-              { path: '/gmail', id: 'gmail', label: 'Gmail Account', icon: KeyRound },
-              { path: '/matches', id: 'matches', label: 'Matches', icon: Sparkles },
-              { path: '/profile', id: 'profile', label: 'Profile', icon: UserCheck },
-              { path: '/settings', id: 'settings', label: 'Settings', icon: Settings },
+              {
+                path: "/discover",
+                id: "discover",
+                label: "Discover",
+                icon: Search,
+              },
+              {
+                path: "/programmes",
+                id: "programmes",
+                label: "Programmes",
+                icon: GraduationCap,
+              },
+              { path: "/emails", id: "emails", label: "Emails", icon: Mail },
+              {
+                path: "/outbox",
+                id: "outbox",
+                label: "Outbox",
+                icon: Send,
+                badge: queueData.items?.filter(
+                  (i: any) => i.status === "pending",
+                )?.length,
+              },
+              {
+                path: "/gmail",
+                id: "gmail",
+                label: "Gmail Account",
+                icon: KeyRound,
+              },
+              {
+                path: "/matches",
+                id: "matches",
+                label: "Matches",
+                icon: Sparkles,
+              },
+              {
+                path: "/profile",
+                id: "profile",
+                label: "Profile",
+                icon: UserCheck,
+              },
+              {
+                path: "/settings",
+                id: "settings",
+                label: "Settings",
+                icon: Settings,
+              },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeStudentTab === tab.id;
@@ -535,27 +604,35 @@ function AppContent() {
                   }}
                   title={!isSidebarOpen ? tab.label : undefined}
                   className={`w-full flex items-center ${
-                    isSidebarOpen ? 'justify-between px-3 py-2' : 'justify-center p-2'
+                    isSidebarOpen
+                      ? "justify-between px-3 py-2"
+                      : "justify-center p-2"
                   } rounded-lg text-xs font-normal transition-all group ${
                     isActive
-                      ? 'border border-[#047857] bg-[#f0fdf4] text-[#064e3b] font-medium shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                      ? "border border-[#047857] bg-[#f0fdf4] text-[#064e3b] font-medium shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Icon
                       className={`h-4 w-4 shrink-0 ${
-                        isActive ? 'text-[#047857]' : 'text-slate-500 group-hover:text-slate-700'
+                        isActive
+                          ? "text-[#047857]"
+                          : "text-slate-500 group-hover:text-slate-700"
                       }`}
                       strokeWidth={1.6}
                     />
-                    {isSidebarOpen && <span className="truncate">{tab.label}</span>}
+                    {isSidebarOpen && (
+                      <span className="truncate">{tab.label}</span>
+                    )}
                   </div>
-                  {typeof tab.badge === 'number' && tab.badge > 0 && isSidebarOpen && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                      {tab.badge}
-                    </span>
-                  )}
+                  {typeof tab.badge === "number" &&
+                    tab.badge > 0 &&
+                    isSidebarOpen && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                        {tab.badge}
+                      </span>
+                    )}
                 </button>
               );
             })}
@@ -571,7 +648,7 @@ function AppContent() {
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
               </div>
               <p className="truncate text-slate-400">
-                {`${queueData.plan_name || 'Scholar Pro'} • ${profile.full_name || 'Alex Vance'}`}
+                {`${queueData.plan_name || "Scholar Pro"} • ${profile.full_name || "Alex Vance"}`}
               </p>
             </div>
           ) : (
@@ -593,18 +670,19 @@ function AppContent() {
             >
               <Menu className="h-4 w-4" />
             </button>
+            <BrandIcon size="sm" className="lg:hidden" />
             <h1 className="font-serif-editorial text-2xl font-normal text-slate-900 tracking-tight">
               {{
-                dashboard: 'Daily Overview',
-                discover: 'Discover (Country-First Academic Programmes)',
-                programmes: 'Academic Programmes Catalog',
-                emails: 'Personalized Email Generation',
-                outbox: 'Application Outbox & Queue',
-                gmail: 'Gmail Account Integration',
-                matches: 'Admissions Fit Matcher',
-                profile: 'Student Academic Profile (Read-Only)',
-                settings: 'Account Settings & Preferences',
-              }[activeStudentTab] || 'Daily'}
+                dashboard: "Daily Overview",
+                discover: "Discover (Country-First Academic Programmes)",
+                programmes: "Academic Programmes Catalog",
+                emails: "Personalized Email Generation",
+                outbox: "Application Outbox & Queue",
+                gmail: "Gmail Account Integration",
+                matches: "Admissions Fit Matcher",
+                profile: "Student Academic Profile (Read-Only)",
+                settings: "Account Settings & Preferences",
+              }[activeStudentTab] || "Daily"}
             </h1>
           </div>
 
@@ -613,7 +691,10 @@ function AppContent() {
             {notification && (
               <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 px-3 py-1.5 rounded-md flex items-center gap-2 shadow-xs">
                 <span>{notification}</span>
-                <button onClick={() => setNotification(null)} className="text-emerald-600 hover:text-emerald-900">
+                <button
+                  onClick={() => setNotification(null)}
+                  className="text-emerald-600 hover:text-emerald-900"
+                >
                   ✕
                 </button>
               </div>
@@ -633,15 +714,21 @@ function AppContent() {
         {/* Tab Contents */}
         <main className="flex-1 px-6 lg:px-8 py-6 max-w-7xl w-full mx-auto space-y-6">
           {/* 1. DAILY DASHBOARD */}
-          {activeStudentTab === 'dashboard' && (
+          {activeStudentTab === "dashboard" && (
             <div className="space-y-6">
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xs font-bold text-slate-900">
-                    Admissions Outreach Snapshot ({new Date().toISOString().slice(0, 10)})
+                    Admissions Outreach Snapshot (
+                    {new Date().toISOString().slice(0, 10)})
                   </h2>
                   <span className="text-xs text-slate-500">
-                    Subscription: <strong className="text-slate-800">{queueData.plan_name || 'Scholar Pro'}</strong> ({queueData.remaining_daily_quota} / {queueData.daily_cap} quota today)
+                    Subscription:{" "}
+                    <strong className="text-slate-800">
+                      {queueData.plan_name || "Scholar Pro"}
+                    </strong>{" "}
+                    ({queueData.remaining_daily_quota} / {queueData.daily_cap}{" "}
+                    quota today)
                   </span>
                 </div>
 
@@ -693,7 +780,9 @@ function AppContent() {
 
                   <div className="bg-white border border-slate-200/80 rounded-lg p-3.5 shadow-2xs">
                     <div className="text-2xl font-bold text-slate-900 leading-none">
-                      {queueData.items?.filter((i: any) => i.status === 'pending')?.length || 0}
+                      {queueData.items?.filter(
+                        (i: any) => i.status === "pending",
+                      )?.length || 0}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-1.5 font-normal">
                       approved in queue
@@ -705,14 +794,19 @@ function AppContent() {
               {/* Quick Action Banner */}
               <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-slate-900">Country-First Academic Programme Discovery</h3>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Country-First Academic Programme Discovery
+                  </h3>
                   <p className="text-xs text-slate-600 max-w-xl">
-                    Search accredited institutions across 190+ sovereign nations. Filter by subject taxonomy, derive real study-level filters, inspect official catalogues, and send personalized inquiry emails.
+                    Search accredited institutions across 190+ sovereign
+                    nations. Filter by subject taxonomy, derive real study-level
+                    filters, inspect official catalogues, and send personalized
+                    inquiry emails.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => navigate('/discover')}
+                    onClick={() => navigate("/discover")}
                     className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1.5"
                   >
                     <Search className="h-3.5 w-3.5" />
@@ -731,7 +825,7 @@ function AppContent() {
           )}
 
           {/* 2. DISCOVER TAB (Country-First Academic Discovery) */}
-          {activeStudentTab === 'discover' && (
+          {activeStudentTab === "discover" && (
             <DiscoverView
               onSelectProgramForEmail={(prog) => handleStartCompose(prog)}
               onViewProgramDetails={(prog) => setSelectedDetailProg(prog)}
@@ -740,7 +834,7 @@ function AppContent() {
           )}
 
           {/* 3. PROGRAMMES CATALOG TAB */}
-          {activeStudentTab === 'programmes' && (
+          {activeStudentTab === "programmes" && (
             <div className="space-y-4">
               <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
                 <div className="relative w-full md:w-96">
@@ -784,7 +878,7 @@ function AppContent() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <span className="text-[11px] text-slate-500 font-medium">
-                            {p.university_name || 'Accredited Institution'}
+                            {p.university_name || "Accredited Institution"}
                           </span>
                           <h4 className="text-sm font-bold text-slate-900 leading-snug">
                             {p.name}
@@ -795,13 +889,20 @@ function AppContent() {
                         </span>
                       </div>
 
-                      <p className="text-xs text-slate-500">{p.department} • {p.subject_category}</p>
+                      <p className="text-xs text-slate-500">
+                        {p.department} • {p.subject_category}
+                      </p>
 
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
                         <span className="truncate">
-                          Tuition: {p.tuition ? `$${p.tuition.toLocaleString()}` : 'Not available'}
+                          Tuition:{" "}
+                          {p.tuition
+                            ? `$${p.tuition.toLocaleString()}`
+                            : "Not available"}
                         </span>
-                        <span className="truncate">Deadline: {p.deadline || 'Rolling'}</span>
+                        <span className="truncate">
+                          Deadline: {p.deadline || "Rolling"}
+                        </span>
                       </div>
                     </div>
 
@@ -827,7 +928,7 @@ function AppContent() {
           )}
 
           {/* 4. EMAILS / COMPOSE TAB */}
-          {activeStudentTab === 'emails' && (
+          {activeStudentTab === "emails" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Draft Configuration */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
@@ -837,14 +938,21 @@ function AppContent() {
                 </h3>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Target Programme</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">
+                    Target Programme
+                  </label>
                   <select
-                    value={composeTargetProg?.id || ''}
+                    value={composeTargetProg?.id || ""}
                     onChange={(e) => {
-                      const prog = programs.find((p) => p.id === e.target.value);
+                      const prog = programs.find(
+                        (p) => p.id === e.target.value,
+                      );
                       if (prog) {
                         setComposeTargetProg(prog);
-                        const c = contacts.find((cnt) => cnt.university_id === prog.university_id) || contacts[0];
+                        const c =
+                          contacts.find(
+                            (cnt) => cnt.university_id === prog.university_id,
+                          ) || contacts[0];
                         setComposeTargetContact(c || null);
                         generateDraft(prog, c, composeTemplate, customHook);
                       }
@@ -854,22 +962,33 @@ function AppContent() {
                     <option value="">Select a programme...</option>
                     {programs.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.university_name}: {p.name} ({p.original_degree || p.level})
+                        {p.university_name}: {p.name} (
+                        {p.original_degree || p.level})
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Admissions Recipient</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">
+                    Admissions Recipient
+                  </label>
                   <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
-                    <div className="font-semibold text-slate-800">{composeTargetContact?.name || 'Graduate Admissions Office'}</div>
-                    <div className="text-slate-500 font-mono text-[11px]">{composeTargetContact?.email || 'admissions@university.edu'}</div>
+                    <div className="font-semibold text-slate-800">
+                      {composeTargetContact?.name ||
+                        "Graduate Admissions Office"}
+                    </div>
+                    <div className="text-slate-500 font-mono text-[11px]">
+                      {composeTargetContact?.email ||
+                        "admissions@university.edu"}
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Custom Research Hook</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">
+                    Custom Research Hook
+                  </label>
                   <textarea
                     rows={3}
                     placeholder="Describe specific lab, professor, or curriculum aspect..."
@@ -880,7 +999,14 @@ function AppContent() {
                 </div>
 
                 <button
-                  onClick={() => generateDraft(composeTargetProg, composeTargetContact, composeTemplate, customHook)}
+                  onClick={() =>
+                    generateDraft(
+                      composeTargetProg,
+                      composeTargetContact,
+                      composeTemplate,
+                      customHook,
+                    )
+                  }
                   disabled={!composeTargetProg}
                   className="w-full py-2.5 px-4 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
@@ -894,20 +1020,25 @@ function AppContent() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">Personalized Email Draft Review</h3>
-                      <p className="text-xs text-slate-500">Human-in-the-loop review required before queue eligibility.</p>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Personalized Email Draft Review
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Human-in-the-loop review required before queue
+                        eligibility.
+                      </p>
                     </div>
 
                     <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                       <button
-                        onClick={() => setPreviewMode('html')}
-                        className={`px-2.5 py-1 text-xs rounded-md ${previewMode === 'html' ? 'bg-white font-semibold text-slate-800 shadow-2xs' : 'text-slate-600'}`}
+                        onClick={() => setPreviewMode("html")}
+                        className={`px-2.5 py-1 text-xs rounded-md ${previewMode === "html" ? "bg-white font-semibold text-slate-800 shadow-2xs" : "text-slate-600"}`}
                       >
                         Formatted
                       </button>
                       <button
-                        onClick={() => setPreviewMode('text')}
-                        className={`px-2.5 py-1 text-xs rounded-md ${previewMode === 'text' ? 'bg-white font-semibold text-slate-800 shadow-2xs' : 'text-slate-600'}`}
+                        onClick={() => setPreviewMode("text")}
+                        className={`px-2.5 py-1 text-xs rounded-md ${previewMode === "text" ? "bg-white font-semibold text-slate-800 shadow-2xs" : "text-slate-600"}`}
                       >
                         Raw Text
                       </button>
@@ -922,7 +1053,9 @@ function AppContent() {
                   )}
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Subject Line</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">
+                      Subject Line
+                    </label>
                     <input
                       type="text"
                       value={draftSubject}
@@ -932,8 +1065,10 @@ function AppContent() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Email Body</label>
-                    {previewMode === 'html' ? (
+                    <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">
+                      Email Body
+                    </label>
+                    {previewMode === "html" ? (
                       <div
                         dangerouslySetInnerHTML={{ __html: draftBodyHtml }}
                         className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 min-h-[240px] text-xs leading-relaxed"
@@ -968,13 +1103,16 @@ function AppContent() {
           )}
 
           {/* 5. OUTBOX QUEUE TAB */}
-          {activeStudentTab === 'outbox' && (
+          {activeStudentTab === "outbox" && (
             <div className="space-y-4">
               <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Application Dispatch Queue</h3>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Application Dispatch Queue
+                  </h3>
                   <p className="text-xs text-slate-500">
-                    Governed by <strong>{queueData.plan_name}</strong> ({queueData.remaining_daily_quota} emails remaining today).
+                    Governed by <strong>{queueData.plan_name}</strong> (
+                    {queueData.remaining_daily_quota} emails remaining today).
                   </p>
                 </div>
 
@@ -983,7 +1121,8 @@ function AppContent() {
                   className="px-5 py-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Send className="h-4 w-4" />
-                  Start Sending Batch ({queueData.remaining_daily_quota} Daily Quota Left)
+                  Start Sending Batch ({queueData.remaining_daily_quota} Daily
+                  Quota Left)
                 </button>
               </div>
 
@@ -1002,26 +1141,34 @@ function AppContent() {
                     {queueData.items?.map((item: any) => (
                       <tr key={item.id} className="hover:bg-slate-50/50">
                         <td className="p-3">
-                          <div className="font-semibold text-slate-900">{item.recipient_name}</div>
-                          <div className="text-slate-400 font-mono text-[11px]">{item.recipient_email}</div>
+                          <div className="font-semibold text-slate-900">
+                            {item.recipient_name}
+                          </div>
+                          <div className="text-slate-400 font-mono text-[11px]">
+                            {item.recipient_email}
+                          </div>
                         </td>
-                        <td className="p-3 font-medium text-slate-800">{item.program_name || 'Academic Inquiry'}</td>
-                        <td className="p-3 text-slate-600 line-clamp-1">{item.subject}</td>
+                        <td className="p-3 font-medium text-slate-800">
+                          {item.program_name || "Academic Inquiry"}
+                        </td>
+                        <td className="p-3 text-slate-600 line-clamp-1">
+                          {item.subject}
+                        </td>
                         <td className="p-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              item.status === 'sent'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : item.status === 'failed'
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-amber-100 text-amber-800'
+                              item.status === "sent"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : item.status === "failed"
+                                  ? "bg-rose-100 text-rose-800"
+                                  : "bg-amber-100 text-amber-800"
                             }`}
                           >
                             {item.status}
                           </span>
                         </td>
                         <td className="p-3 text-right">
-                          {item.status === 'pending' && (
+                          {item.status === "pending" && (
                             <button
                               onClick={() => handleSendQueueItem(item.id)}
                               className="px-3 py-1 rounded bg-slate-900 text-white font-medium hover:bg-slate-800 text-[11px]"
@@ -1034,8 +1181,12 @@ function AppContent() {
                     ))}
                     {(!queueData.items || queueData.items.length === 0) && (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-slate-400">
-                          No pending applications in queue. Discover programmes and approve drafts to populate your outbox.
+                        <td
+                          colSpan={5}
+                          className="p-8 text-center text-slate-400"
+                        >
+                          No pending applications in queue. Discover programmes
+                          and approve drafts to populate your outbox.
                         </td>
                       </tr>
                     )}
@@ -1046,29 +1197,41 @@ function AppContent() {
           )}
 
           {/* 6. GMAIL ACCOUNT TAB */}
-          {activeStudentTab === 'gmail' && <GmailTab onNotify={showNotify} />}
+          {activeStudentTab === "gmail" && <GmailTab onNotify={showNotify} />}
 
           {/* 7. MATCHES TAB */}
-          {activeStudentTab === 'matches' && (
+          {activeStudentTab === "matches" && (
             <div className="space-y-4">
               <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs">
-                <h3 className="text-sm font-bold text-slate-900">Academic Fit Matcher</h3>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Academic Fit Matcher
+                </h3>
                 <p className="text-xs text-slate-500">
-                  Scores calculated against your academic profile ({profile.qualification}, GPA {profile.gpa}/{profile.max_gpa}, budget ${profile.budget_max?.toLocaleString()}).
+                  Scores calculated against your academic profile (
+                  {profile.qualification}, GPA {profile.gpa}/{profile.max_gpa},
+                  budget ${profile.budget_max?.toLocaleString()}).
                 </p>
               </div>
 
               <div className="space-y-3">
                 {matches.map((m, idx) => (
-                  <div key={idx} className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div
+                    key={idx}
+                    className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900">{m.program.university_name}</span>
+                        <span className="text-xs font-bold text-slate-900">
+                          {m.program.university_name}
+                        </span>
                         <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
                           {m.score}% Match
                         </span>
                       </div>
-                      <h4 className="text-sm font-semibold text-slate-800">{m.program.name} ({m.program.original_degree || m.program.level})</h4>
+                      <h4 className="text-sm font-semibold text-slate-800">
+                        {m.program.name} (
+                        {m.program.original_degree || m.program.level})
+                      </h4>
                       <ul className="text-xs text-slate-500 list-disc list-inside space-y-0.5">
                         {m.reasons.map((r, rIdx) => (
                           <li key={rIdx}>{r}</li>
@@ -1089,7 +1252,7 @@ function AppContent() {
           )}
 
           {/* 8. READ-ONLY STUDENT PROFILE TAB */}
-          {activeStudentTab === 'profile' && (
+          {activeStudentTab === "profile" && (
             <StudentProfile
               profile={profile}
               documents={documents}
@@ -1100,31 +1263,57 @@ function AppContent() {
           )}
 
           {/* 9. SETTINGS TAB */}
-          {activeStudentTab === 'settings' && (
+          {activeStudentTab === "settings" && (
             <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-4 max-w-2xl">
-              <h3 className="text-base font-bold text-slate-900">Account & Delivery Preferences</h3>
-              <p className="text-xs text-slate-500">Configured according to your active {queueData.plan_name} subscription.</p>
+              <h3 className="text-base font-bold text-slate-900">
+                Account & Delivery Preferences
+              </h3>
+              <p className="text-xs text-slate-500">
+                Configured according to your active {queueData.plan_name}{" "}
+                subscription.
+              </p>
 
               <div className="space-y-3 text-xs text-slate-700">
                 <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
                   <span>Daily Sending Cap:</span>
-                  <strong className="text-slate-900">{queueData.daily_cap} emails/day</strong>
+                  <strong className="text-slate-900">
+                    {queueData.daily_cap} emails/day
+                  </strong>
                 </div>
                 <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
                   <span>Monthly Sending Cap:</span>
-                  <strong className="text-slate-900">{queueData.monthly_cap} emails/month</strong>
+                  <strong className="text-slate-900">
+                    {queueData.monthly_cap} emails/month
+                  </strong>
                 </div>
                 <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
                   <span>Recipient Local Delivery Window:</span>
-                  <strong className="text-slate-900">08:00 – 17:00 Local Time</strong>
+                  <strong className="text-slate-900">
+                    08:00 – 17:00 Local Time
+                  </strong>
                 </div>
                 <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
                   <span>Polite Delivery Jitter:</span>
-                  <strong className="text-slate-900">60–240 seconds randomized gap</strong>
+                  <strong className="text-slate-900">
+                    60–240 seconds randomized gap
+                  </strong>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Student App Footer */}
+          <footer className="mt-12 pt-6 pb-2 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+            <div className="flex items-center gap-2.5">
+              <BrandIcon size="xs" />
+              <span className="font-semibold text-slate-700">AdminPath</span>
+              <span className="text-slate-300">•</span>
+              <span>Global University Admissions & Outreach</span>
+            </div>
+            <div className="text-slate-400">
+              © {new Date().getFullYear()} AdminPath. All rights reserved.
+            </div>
+          </footer>
         </main>
       </div>
 
