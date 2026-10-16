@@ -6,10 +6,6 @@ import {
   Shield,
   AlertCircle,
   RotateCw,
-  CheckCircle2,
-  GraduationCap,
-  KeyRound,
-  UserCheck,
 } from "lucide-react";
 import BrandIcon from "./BrandIcon";
 
@@ -61,12 +57,6 @@ export default function LoginView({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickFill = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setErrorMessage(null);
   };
 
   return (
@@ -150,79 +140,8 @@ export default function LoginView({
             </button>
           </form>
 
-          {/* Provisioned Accounts Quick-Fill Section */}
-          <div className="pt-4 border-t border-slate-100 space-y-2.5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Provisioned Student & Administrator Accounts
-            </span>
-            <div className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() =>
-                  handleQuickFill("scholar@admitpath.app", "ScholarPass2026")
-                }
-                className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/40 text-xs text-slate-700 transition flex items-center justify-between cursor-pointer"
-              >
-                <div>
-                  <span className="font-semibold text-slate-900 block">
-                    Alex Vance
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    scholar@admitpath.app • Scholar Pro
-                  </span>
-                </div>
-                <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                  Use Login
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleQuickFill(
-                    "marcus.student@admitpath.app",
-                    "ScholarPass2026",
-                  )
-                }
-                className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/40 text-xs text-slate-700 transition flex items-center justify-between cursor-pointer"
-              >
-                <div>
-                  <span className="font-semibold text-slate-900 block">
-                    Marcus Aurelius
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    marcus.student@admitpath.app • Starter Scholar
-                  </span>
-                </div>
-                <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                  Use Login
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleQuickFill("admin@admitpath.app", "AdminMaster2026!")
-                }
-                className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 text-xs text-slate-700 transition flex items-center justify-between cursor-pointer"
-              >
-                <div>
-                  <span className="font-semibold text-slate-900 block">
-                    Platform Administrator
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    admin@admitpath.app • Full RBAC Console
-                  </span>
-                </div>
-                <span className="text-[10px] font-semibold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">
-                  Use Login
-                </span>
-              </button>
-            </div>
-          </div>
-
           {onBackToPublic && (
-            <div className="pt-2 text-center">
+            <div className="pt-2 text-center border-t border-slate-100">
               <button
                 type="button"
                 onClick={onBackToPublic}

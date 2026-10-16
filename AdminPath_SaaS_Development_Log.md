@@ -531,3 +531,24 @@
 - **Remaining Limitations:** None. Both features are fully implemented, verified, and operational.
 - **Status:** Completed.
 
+### Step 29 — Removal of Provisioned Accounts Quick-Fill Section on Login View
+- **Date/Time:** 2026-10-16 08:07
+- **Objective:** Remove the "Provisioned Student & Administrator Accounts" quick-fill button block from `LoginView.tsx` as requested.
+- **Files Inspected:** `src/components/LoginView.tsx`.
+- **Files Created:** None.
+- **Files Modified:** `src/components/LoginView.tsx`, `AdminPath_SaaS_Development_Log.md`.
+- **Reason for Change:** User requested the removal of the demo provisioned account credentials card from the login UI.
+- **Implementation Details:**
+  - Removed the `Provisioned Student & Administrator Accounts` section from `src/components/LoginView.tsx`.
+  - Removed the unused `handleQuickFill` helper function and unused icon imports.
+  - Retained standard email/password input form, submit action, link to public website, and PBKDF2-HMAC-SHA256 security badge.
+- **Database or API Changes:** None.
+- **Commands Executed:**
+  - `npm run lint` -> Exit code 0.
+  - `compile_applet` -> Build succeeded.
+  - `python3 -m unittest discover tests` -> 48 tests OK in 2.819s.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** None.
+- **Status:** Completed.
+
+
