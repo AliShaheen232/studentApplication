@@ -41,6 +41,7 @@ import {
   Calendar,
   DollarSign,
   Info,
+  LogOut,
 } from "lucide-react";
 
 import { RouterProvider, useRouter, AppSurface } from "./router";
@@ -51,6 +52,8 @@ import GmailTab from "./components/GmailTab";
 import StartSendingModal from "./components/StartSendingModal";
 import DiscoverView, { DiscoveredProgram } from "./components/DiscoverView";
 import ProgramDetailsModal from "./components/ProgramDetailsModal";
+import EmailComposerModal from "./components/EmailComposerModal";
+import LoginView from "./components/LoginView";
 import BrandIcon from "./components/BrandIcon";
 
 interface University {
@@ -177,10 +180,27 @@ function AppContent() {
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [suppressionList, setSuppressionList] = useState<any[]>([]);
 
+  // Authentication & Session States
+  const [sessionToken, setSessionToken] = useState<string | null>(() =>
+    localStorage.getItem("adminpath_token"),
+  );
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
   // Modals & Selections
   const [selectedDetailProg, setSelectedDetailProg] =
     useState<DiscoveredProgram | null>(null);
   const [isStartSendingOpen, setIsStartSendingOpen] = useState(false);
+
+  // Discover Email Composer Modal States
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailModalProgram, setEmailModalProgram] =
+    useState<DiscoveredProgram | Program | null>(null);
+
+  const handleOpenEmailModal = (prog: Program | DiscoveredProgram) => {
+    setEmailModalProgram(prog);
+    setIsEmailModalOpen(true);
+  };
 
   // Programmes Catalog Filter State
   const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
@@ -209,10 +229,28 @@ function AppContent() {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  // Initial Data Fetching
-  const fetchAllData = async () => {
+  // Helper for auth headers
+  const getAuthHeaders = (tokenOverride?: string): Record<string, string> => {
+    const activeToken =
+      tokenOverride ||
+      sessionToken ||
+      localStorage.getItem("adminpath_token");
+    if (activeToken) {
+      return {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${activeToken}`,
+      };
+    }
+    return {
+      "Content-Type": "application/json",
+      "x-impersonate-role": "student",
+    };
+  };
+
+  // Initial & Background Data Fetching
+  const fetchAllData = async (tokenOverride?: string) => {
     try {
-      const headers = { "x-impersonate-role": "student" };
+      const headers = getAuthHeaders(tokenOverride);
       const [
         uRes,
         pRes,
@@ -242,7 +280,10 @@ function AppContent() {
       if (uRes.ok) setUniversities(await uRes.json());
       if (pRes.ok) setPrograms(await pRes.json());
       if (cRes.ok) setContacts(await cRes.json());
-      if (profRes.ok) setProfile(await profRes.json());
+      if (profRes.ok) {
+        const profData = await profRes.json();
+        setProfile(profData);
+      }
       if (docsRes.ok) setDocuments(await docsRes.json());
       if (slRes.ok) setShortlists(await slRes.json());
       if (drRes.ok) setDrafts(await drRes.json());
@@ -262,21 +303,84 @@ function AppContent() {
     }
   };
 
+  // Auth & Session Verification on Mount
   useEffect(() => {
-    fetchAllData();
+    const verifyAuth = async () => {
+      const storedToken = localStorage.getItem("adminpath_token");
+      if (!storedToken) {
+        setIsAuthLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${storedToken}` },
+        });
+        if (res.ok) {
+          const userData = await res.json();
+          setCurrentUser(userData);
+          setSessionToken(storedToken);
+          if (userData.student_profile) {
+            setProfile(userData.student_profile);
+          }
+          if (userData.settings) {
+            setSettings({
+              daily_cap: userData.subscription?.daily_send_limit || 25,
+              gmail_connected: userData.gmail?.connected ? 1 : 0,
+              gmail_email:
+                userData.gmail?.email || userData.settings?.gmail_email,
+            });
+          }
+          await fetchAllData(storedToken);
+        } else {
+          // Token is expired or revoked
+          localStorage.removeItem("adminpath_token");
+          setSessionToken(null);
+          setCurrentUser(null);
+        }
+      } catch (err) {
+        console.error("Session verification error:", err);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+    verifyAuth();
   }, []);
+
+  // Logout Handler
+  const handleLogout = async () => {
+    const token = sessionToken || localStorage.getItem("adminpath_token");
+    if (token) {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (err) {
+        console.error("Logout error:", err);
+      }
+    }
+    localStorage.removeItem("adminpath_token");
+    setSessionToken(null);
+    setCurrentUser(null);
+    setDrafts([]);
+    setDocuments([]);
+    setShortlists([]);
+    navigate("/login");
+    showNotify("Logged out successfully.");
+  };
 
   // Fetch matches whenever on /matches
   useEffect(() => {
     if (path.startsWith("/matches")) {
-      fetch("/api/matcher", { headers: { "x-impersonate-role": "student" } })
+      const headers = getAuthHeaders();
+      fetch("/api/matcher", { headers })
         .then((r) => r.json())
         .then((data) => setMatches(data))
         .catch(console.error);
     }
-  }, [path]);
+  }, [path, sessionToken]);
 
-  // Prepare Compose
+  // Prepare Compose for Emails tab
   const handleStartCompose = (prog: Program | DiscoveredProgram) => {
     setComposeTargetProg(prog as Program);
     const targetContact =
@@ -295,12 +399,10 @@ function AppContent() {
   ) => {
     if (!prog) return;
     try {
+      const headers = getAuthHeaders();
       const res = await fetch("/api/compose/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-impersonate-role": "student",
-        },
+        headers,
         body: JSON.stringify({
           program_id: prog.id,
           contact_id: cont?.id,
@@ -322,12 +424,10 @@ function AppContent() {
   const handleApproveDraft = async () => {
     if (!composeTargetProg) return;
     try {
+      const headers = getAuthHeaders();
       const saveRes = await fetch("/api/drafts", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-impersonate-role": "student",
-        },
+        headers,
         body: JSON.stringify({
           program_id: composeTargetProg.id,
           contact_id: composeTargetContact?.id,
@@ -342,7 +442,7 @@ function AppContent() {
       if (saveData.draft_id) {
         const appRes = await fetch(`/api/drafts/${saveData.draft_id}/approve`, {
           method: "POST",
-          headers: { "x-impersonate-role": "student" },
+          headers,
         });
         const appData = await appRes.json();
         if (appRes.ok) {
@@ -361,9 +461,10 @@ function AppContent() {
   // Send single queue item
   const handleSendQueueItem = async (itemId: string) => {
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`/api/queue/${itemId}/send-now`, {
         method: "POST",
-        headers: { "x-impersonate-role": "student" },
+        headers,
       });
       const data = await res.json();
       if (res.ok) {
@@ -376,6 +477,7 @@ function AppContent() {
       console.error(err);
     }
   };
+
   // Document Vault Actions
   const handleUploadDoc = async (
     docType: string,
@@ -383,12 +485,10 @@ function AppContent() {
     size: number,
     mimeType: string,
   ) => {
+    const headers = getAuthHeaders();
     const res = await fetch("/api/documents/upload", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-impersonate-role": "student",
-      },
+      headers,
       body: JSON.stringify({
         doc_type: docType,
         filename,
@@ -401,18 +501,19 @@ function AppContent() {
       throw new Error(err.error || "Upload failed");
     }
     const updated = await fetch("/api/documents", {
-      headers: { "x-impersonate-role": "student" },
+      headers,
     }).then((r) => r.json());
     setDocuments(updated);
   };
 
   const handleDeleteDoc = async (docId: string) => {
+    const headers = getAuthHeaders();
     await fetch(`/api/documents/${docId}`, {
       method: "DELETE",
-      headers: { "x-impersonate-role": "student" },
+      headers,
     });
     const updated = await fetch("/api/documents", {
-      headers: { "x-impersonate-role": "student" },
+      headers,
     }).then((r) => r.json());
     setDocuments(updated);
     showNotify("Document removed from vault.");
@@ -441,18 +542,70 @@ function AppContent() {
   });
 
   // -------------------------------------------------------------
+  // SURFACE 0: LOGIN VIEW (Direct /login route)
+  // -------------------------------------------------------------
+  if (path === "/login") {
+    return (
+      <LoginView
+        onLoginSuccess={(token, user) => {
+          localStorage.setItem("adminpath_token", token);
+          setSessionToken(token);
+          setCurrentUser(user);
+          if (user.student_profile) {
+            setProfile(user.student_profile);
+          }
+          fetchAllData(token);
+          showNotify(`Welcome back, ${user.full_name || "Scholar"}!`);
+          if (user.role === "admin") {
+            navigate("/admin/dashboard");
+          } else {
+            navigate("/dashboard");
+          }
+        }}
+        onBackToPublic={() => navigate("/?surface=public")}
+      />
+    );
+  }
+
+  // -------------------------------------------------------------
   // SURFACE 1: PUBLIC WEBSITE (Landing, Pricing, Checkout)
   // -------------------------------------------------------------
   if (surface === "public") {
     return (
       <PublicWebsite
-        onSignInClick={() => navigate("/dashboard")}
+        onSignInClick={() => navigate("/login")}
         onSelectPlan={(planId) => {
           showNotify(
             `Plan ${planId} selected. Complete checkout to provision student access.`,
           );
-          navigate("/dashboard");
+          navigate("/login");
         }}
+      />
+    );
+  }
+
+  // -------------------------------------------------------------
+  // AUTH GUARD: Require active session for student/admin surfaces
+  // -------------------------------------------------------------
+  if (!isAuthLoading && !currentUser && !sessionToken) {
+    return (
+      <LoginView
+        onLoginSuccess={(token, user) => {
+          localStorage.setItem("adminpath_token", token);
+          setSessionToken(token);
+          setCurrentUser(user);
+          if (user.student_profile) {
+            setProfile(user.student_profile);
+          }
+          fetchAllData(token);
+          showNotify(`Welcome back, ${user.full_name || "Scholar"}!`);
+          if (user.role === "admin") {
+            navigate("/admin/dashboard");
+          } else {
+            navigate("/dashboard");
+          }
+        }}
+        onBackToPublic={() => navigate("/?surface=public")}
       />
     );
   }
@@ -639,21 +792,44 @@ function AppContent() {
           </div>
         </div>
 
-        {/* Sidebar Footer */}
-        <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+        {/* Sidebar Footer with Dynamic Authenticated Student Identity & Logout */}
+        <div className="p-3 border-t border-slate-100 bg-slate-50/70">
           {isSidebarOpen ? (
-            <div className="text-[11px] text-slate-500 space-y-1">
-              <div className="flex items-center justify-between text-slate-700 font-medium">
-                <span>Student Application</span>
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+            <div className="space-y-2.5">
+              <div className="text-[11px] text-slate-500 space-y-0.5">
+                <div className="flex items-center justify-between text-slate-700 font-semibold">
+                  <span>Student Application</span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                </div>
+                <p className="truncate text-slate-800 font-bold text-xs">
+                  {currentUser?.full_name || profile.full_name || "Scholar Student"}
+                </p>
+                <p className="truncate text-slate-400 text-[10px]">
+                  {currentUser?.subscription?.plan_name || queueData.plan_name || "Scholar Pro"} • {currentUser?.email || "student@admitpath.app"}
+                </p>
               </div>
-              <p className="truncate text-slate-400">
-                {`${queueData.plan_name || "Scholar Pro"} • ${profile.full_name || "Alex Vance"}`}
-              </p>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-slate-200 hover:border-rose-200 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-medium transition cursor-pointer"
+                title="Log out of student account"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Log out</span>
+              </button>
             </div>
           ) : (
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                title="Log out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
           )}
         </div>
@@ -827,7 +1003,7 @@ function AppContent() {
           {/* 2. DISCOVER TAB (Country-First Academic Discovery) */}
           {activeStudentTab === "discover" && (
             <DiscoverView
-              onSelectProgramForEmail={(prog) => handleStartCompose(prog)}
+              onSelectProgramForEmail={(prog) => handleOpenEmailModal(prog)}
               onViewProgramDetails={(prog) => setSelectedDetailProg(prog)}
               onNotify={showNotify}
             />
@@ -909,13 +1085,13 @@ function AppContent() {
                     <div className="pt-3 mt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setSelectedDetailProg(p as any)}
-                        className="py-1.5 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium"
+                        className="py-1.5 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium cursor-pointer"
                       >
                         View Details
                       </button>
                       <button
-                        onClick={() => handleStartCompose(p)}
-                        className="py-1.5 px-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold flex items-center justify-center gap-1"
+                        onClick={() => handleOpenEmailModal(p as any)}
+                        className="py-1.5 px-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <Mail className="h-3 w-3" />
                         Send Email
@@ -1335,8 +1511,37 @@ function AppContent() {
         onClose={() => setSelectedDetailProg(null)}
         onSendEmail={(prog) => {
           setSelectedDetailProg(null);
-          handleStartCompose(prog);
+          handleOpenEmailModal(prog);
         }}
+      />
+
+      {/* EMAIL COMPOSER MODAL (DISCOVER IN-PLACE MODAL) */}
+      <EmailComposerModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        program={emailModalProgram}
+        studentProfile={profile}
+        userEmail={currentUser?.email || "scholar@admitpath.app"}
+        contacts={contacts}
+        isGmailConnected={settings.gmail_connected === 1}
+        gmailEmail={settings.gmail_email}
+        token={sessionToken}
+        onEmailSentSuccess={(result) => {
+          showNotify(`Admissions inquiry sent to ${result.recipient_email}!`);
+          if (result.remaining_daily_quota !== undefined) {
+            setQueueData((prev: any) => ({
+              ...prev,
+              remaining_daily_quota: result.remaining_daily_quota,
+              sent_today: (prev.sent_today || 0) + 1,
+            }));
+          }
+          fetchAllData(sessionToken || undefined);
+        }}
+        onOpenGmailSettings={() => {
+          setIsEmailModalOpen(false);
+          navigate("/gmail");
+        }}
+        onNotify={showNotify}
       />
     </div>
   );

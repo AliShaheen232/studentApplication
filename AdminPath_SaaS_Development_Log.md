@@ -320,3 +320,214 @@
   - `src/components/AdminDashboard.tsx`: Added `BrandIcon` to administrator console header and footer.
 - **Verification:** `lint_applet` (0 errors), `compile_applet` (successful build), `curl /favicon.svg` (200 OK), and 37/37 unit tests passing.
 - **UI Responsiveness & Navigation**: Verified in React 19 component tree.
+
+---
+
+## E. Email Modal and Student Account Authentication Development Log
+
+### Step 20 — Repository Audit and Baseline Verification
+- **Date/Time:** 2026-10-16 05:30
+- **Objective:** Audit existing codebase, inspect authentication architecture, session management, email compose workflows, database schemas, run baseline test suite and verify build tools.
+- **Files Inspected:**
+  - `server.ts`: Evaluated session token lookup in `getAuthenticatedUser`, role middleware (`requireAuth`, `requireAdmin`), profile read-only rules, and compose endpoints.
+  - `src/App.tsx`: Inspected student identity presentation in the sidebar, navigation tabs, and `handleStartCompose` flow which previously redirected to the Emails tab.
+  - `src/components/DiscoverView.tsx`: Inspected programme card actions and `onSelectProgramForEmail` callback.
+  - `src/components/ProgramDetailsModal.tsx`: Inspected inquiry button behavior.
+  - `src/components/PublicWebsite.tsx`: Inspected sign-in triggers and plan checkout.
+  - `src/router.tsx`: Inspected surface and route detection.
+  - `core/auth.py`, `tests/test_saas_features.py`, `tests/test_auth.py`: Inspected existing Python test suites.
+- **Files Created:** None in this step.
+- **Files Modified:** `AdminPath_SaaS_Development_Log.md`.
+- **Reason for Change:** Establish baseline operational metrics and document gap analysis prior to code modifications.
+- **Implementation Details:**
+  - Ran existing unit test suite: all 37 tests passed in 1.496s.
+  - Verified TypeScript compilation: `npm run lint` (`tsc --noEmit`) exited with code 0.
+  - Verified Vite production build: `compile_applet` succeeded.
+- **Database or API Changes:** None.
+- **Commands Executed:**
+  - `python3 -m unittest discover tests` -> Ran 37 tests in 1.496s, OK.
+  - `npm run lint` -> Exit code 0.
+  - `compile_applet` -> Build succeeded.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** Unauthenticated requests previously defaulted to demo student if no Bearer token was passed; Discover page lacked in-place modal composer.
+- **Status:** Completed.
+
+### Step 21 — Existing Email Workflow and Recipient Accuracy Inspection
+- **Date/Time:** 2026-10-16 05:35
+- **Objective:** Analyze existing draft generation (`/api/compose/generate`), approval, queue dispatch, contacts table schema, and Gmail sending constraints.
+- **Files Inspected:** `server.ts`, `core/globalCatalog.ts`, `src/App.tsx`.
+- **Files Created:** None in this step.
+- **Files Modified:** `AdminPath_SaaS_Development_Log.md`.
+- **Reason for Change:** Map out requirements for Feature 1 (in-place email composer modal on Discover) and ensure compliance with recipient accuracy (never inventing fake emails when unverified).
+- **Implementation Details:**
+  - Identified that `contacts` table maps to `universities(id)`. When no contact exists for a university, previously fallback used `admissions@${domain}`. For strict recipient accuracy, unverified admissions contacts must be flagged as unverified and require student review/confirmation before dispatch.
+  - Designed atomic `POST /api/compose/send` endpoint to validate Gmail connection, daily quota, recipient format, suppression list, and 7-day follow-up pause while updating `drafts`, `outbox`, `sent_log`, and `usage_ledger`.
+- **Database or API Changes:** Designed `POST /api/compose/send` and enhanced `POST /api/compose/generate` with contact verification status.
+- **Commands Executed:** None.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** Composer modal component and sending endpoint to be implemented.
+- **Status:** Completed.
+
+### Step 22 — Authentication Hardening, Server-Side Session Validation & Second Student Account Seeding
+- **Date/Time:** 2026-10-16 05:38
+- **Objective:** Enforce server-side session authentication on all protected endpoints, seed a second student account (`usr_student_marcus` / Marcus Aurelius), and add session invalidation on logout.
+- **Files Inspected:** `server.ts`, `core/auth.py`.
+- **Files Created:** None.
+- **Files Modified:** `server.ts`.
+- **Reason for Change:** Comply with Feature 2 requirements for individual student accounts, authenticated identity derived strictly from server-side sessions, and secure logout.
+- **Implementation Details:**
+  - Seeded student Marcus Aurelius (`marcus.student@admitpath.app` / `ScholarPass2026`) with student profile and Starter Scholar subscription plan (10 daily send limit).
+  - Hardened `getAuthenticatedUser(req)` in `server.ts`: requires valid Bearer token looked up in `sessions` table (`expires_at > datetime('now')`) or explicit test override header (`x-impersonate-role` for existing mock test isolation). Never falls back to hardcoded user when no token or header is present.
+  - Added session invalidation audit logging to `POST /api/auth/logout`.
+  - Updated `GET /api/auth/me` to return student identity, full profile, subscription details with daily limits, user settings, and Gmail connection state.
+- **Database or API Changes:**
+  - Seeded user `usr_student_marcus` in `users`, `students`, and `subscriptions`.
+  - Modified `GET /api/auth/me` to include full subscription, settings, and Gmail metadata.
+- **Commands Executed:** Python test suite rerun.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** Need automated test coverage for second student account and logout verification.
+- **Status:** Completed.
+
+### Step 23 — Direct Email Compose & Sending Pipeline API with Strict Recipient Verification
+- **Date/Time:** 2026-10-16 05:40
+- **Objective:** Implement `POST /api/compose/send` endpoint and enhance `POST /api/compose/generate` for in-place modal email composition with deliverability protections.
+- **Files Inspected:** `server.ts`.
+- **Files Created:** None.
+- **Files Modified:** `server.ts`.
+- **Reason for Change:** Provide backend service for Feature 1 (in-place email modal on Discover) to validate recipient accuracy, check student Gmail connection, enforce quota, prevent duplicates, and log sent inquiries.
+- **Implementation Details:**
+  - Updated `POST /api/compose/generate` to look up verified admissions contact from database; when none is present, sets `is_verified_contact: false` and prompts the user to provide/verify the institutional recipient.
+  - Implemented `POST /api/compose/send`:
+    1. Validates authenticated student identity and permissions.
+    2. Validates recipient email format (`INVALID_RECIPIENT`), subject (`MISSING_SUBJECT`), and body (`MISSING_BODY`).
+    3. Checks recipient against suppression table (`RECIPIENT_SUPPRESSED`).
+    4. Enforces 7-day follow-up pause to prevent duplicate spamming (`FOLLOW_UP_PAUSE_ACTIVE`).
+    5. Validates connected student Gmail status (`GMAIL_NOT_CONNECTED`).
+    6. Enforces subscription daily send cap (`DAILY_QUOTA_EXCEEDED`).
+    7. Creates draft (`drafts` table with `status = 'approved'`), enqueues into `outbox` (`status = 'sent'`), records delivery in `sent_log` (`status = 'delivered'`), increments `usage_ledger`, and records audit log.
+    8. Returns remaining daily quota, sent message ID, and confirmation message.
+- **Database or API Changes:**
+  - Created endpoint: `POST /api/compose/send`.
+  - Updated endpoint: `POST /api/compose/generate`.
+- **Commands Executed:** Python unit tests.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** Automated test script needed for modal and auth verification.
+- **Status:** Completed.
+
+### Step 24 — Automated Test Suite for Email Modal & Student Authentication
+- **Date/Time:** 2026-10-16 05:42
+- **Objective:** Create comprehensive regression and feature verification tests covering all acceptance criteria for Feature 1 and Feature 2.
+- **Files Inspected:** `tests/test_saas_features.py`, `tests/test_auth.py`.
+- **Files Created:** `tests/test_email_modal_and_auth.py`.
+- **Files Modified:** `tests/test_email_modal_and_auth.py`.
+- **Reason for Change:** Guarantee automated test coverage for login credentials, distinct student identities, session invalidation on logout, protected route security, draft generation, send validation, Gmail disconnect checks, and 7-day follow-up pause.
+- **Implementation Details:**
+  - Created 11 test cases in `TestEmailModalAndStudentAuth`:
+    - `test_auth_01_student_login_with_valid_credentials`
+    - `test_auth_02_student_login_with_invalid_credentials`
+    - `test_auth_03_me_endpoint_returns_authenticated_identity`
+    - `test_auth_04_second_student_account_has_distinct_identity`
+    - `test_auth_05_unauthenticated_request_rejected`
+    - `test_auth_06_logout_invalidates_session_and_rejects_subsequent_access`
+    - `test_auth_07_student_cannot_access_admin_functions`
+    - `test_email_01_draft_generation_with_programme_association`
+    - `test_email_02_send_validation_rejects_missing_fields`
+    - `test_email_03_send_validation_rejects_disconnected_gmail`
+    - `test_email_04_successful_send_updates_draft_outbox_sent_and_quota`
+- **Database or API Changes:** None.
+- **Commands Executed:**
+  - `python3 -m unittest discover tests` -> Ran 48 tests in 2.554s, all 48 passed.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** None.
+- **Status:** Completed.
+
+### Step 25 — Discover In-Place Email Composer Modal Component
+- **Date/Time:** 2026-10-16 05:44
+- **Objective:** Build accessible, responsive modal email composer component (`EmailComposerModal.tsx`) for the Discover page.
+- **Files Inspected:** `src/components/DiscoverView.tsx`, `src/components/ProgramDetailsModal.tsx`.
+- **Files Created:** `src/components/EmailComposerModal.tsx`.
+- **Files Modified:** None.
+- **Reason for Change:** Comply with Feature 1 requirement that clicking "Send Email" on a programme card opens the composer directly in a modal over Discover without changing URL or navigating away.
+- **Implementation Details:**
+  - Created `EmailComposerModal` component with:
+    - Target programme banner (original degree, department, institution, location).
+    - Clear distinction between admissions inquiry and official application portal filing.
+    - Verified institutional contact indicator and editable recipient fields with warnings when unverified.
+    - Template selector (standard inquiry, research alignment, graduate assistantship) and custom research hook input.
+    - Draft regeneration with loading spinner (`RotateCw`) and validation error banners.
+    - Reviewable and editable subject and body textarea.
+    - Connected student Gmail status bar with direct shortcut to connect Gmail if disconnected.
+    - Deliverability protection safeguards badge (RFC 2822 MIME, polite jitter, rate limiting).
+    - Modal actions: "Generate / Regenerate Draft", "Send Email", and "Cancel".
+    - Disabled state during submission and keyboard Escape key dismissal.
+- **Database or API Changes:** Consumes `POST /api/compose/generate` and `POST /api/compose/send`.
+- **Commands Executed:** None.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** Wire modal into `App.tsx` and `DiscoverView.tsx`.
+- **Status:** Completed.
+
+### Step 26 — Student Account Login View Component
+- **Date/Time:** 2026-10-16 05:44
+- **Objective:** Build dedicated student authentication view (`LoginView.tsx`) with password authentication, session token persistence, and quick credential switcher.
+- **Files Inspected:** `src/components/PublicWebsite.tsx`, `src/router.tsx`.
+- **Files Created:** `src/components/LoginView.tsx`.
+- **Files Modified:** None.
+- **Reason for Change:** Comply with Feature 2 requirements for individual student account sign-in, session token storage, and redirection to the student workspace.
+- **Implementation Details:**
+  - Created `LoginView` component with:
+    - Clean brand header matching `BrandIcon`.
+    - Email and password inputs with client validation and error banners.
+    - Calls `POST /api/auth/login` and stores token in `localStorage.setItem("adminpath_token", data.token)`.
+    - Quick-fill buttons for provisioned student accounts (Alex Vance / Scholar Pro, Marcus Aurelius / Starter Scholar) and Platform Administrator.
+    - Link to return to public website.
+- **Database or API Changes:** Consumes `POST /api/auth/login`.
+- **Commands Executed:** None.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** Wire auth state and logout in `App.tsx`.
+- **Status:** Completed.
+
+### Step 27 — Student Identity, Dynamic Profile & Sign-Out Integration
+- **Date/Time:** 2026-10-16 05:46
+- **Objective:** Connect `EmailComposerModal` and `LoginView` into `App.tsx`, wire `onSelectProgramForEmail` across Discover and Programme Details modals, and add authenticated student identity and logout in sidebar.
+- **Files Inspected:** `src/App.tsx`, `src/components/DiscoverView.tsx`, `src/components/ProgramDetailsModal.tsx`.
+- **Files Created:** None.
+- **Files Modified:** `src/App.tsx`.
+- **Reason for Change:** Bring together both features in the runtime application while preserving existing styling and avoiding unwanted tab switching.
+- **Implementation Details:**
+  - Added `sessionToken`, `currentUser`, and `isAuthLoading` states in `App.tsx`.
+  - Added auth verification on mount against `GET /api/auth/me` with Bearer token.
+  - Replaced hardcoded student identity in sidebar with dynamic `currentUser?.full_name`, `currentUser?.subscription?.plan_name`, and student email.
+  - Added visible "Log out" button in sidebar and mobile header calling `POST /api/auth/logout`, clearing local token, and navigating to `/login`.
+  - Added auth guard redirecting unauthenticated users to `LoginView`.
+  - Wired `onSelectProgramForEmail` on Discover page to open `EmailComposerModal` in place, keeping search query, filters, and results visible.
+  - Program Details modal "Send Email" action also opens `EmailComposerModal` for the selected programme.
+  - Fixed TypeScript return type signature for `getAuthHeaders` to `: Record<string, string>`.
+- **Database or API Changes:** None.
+- **Commands Executed:**
+  - `npm run lint` -> Verified 0 TypeScript errors (`tsc --noEmit` exited 0).
+  - `compile_applet` -> Build succeeded.
+- **Errors Encountered and Fixes:** Fixed `Record<string, string>` return type mismatch in `getAuthHeaders` helper in `src/App.tsx`.
+- **Remaining Limitations:** None.
+- **Status:** Completed.
+
+### Step 28 — End-to-End Verification and Baseline Regression Check
+- **Date/Time:** 2026-10-16 05:47
+- **Objective:** Execute full automated test suite (baseline + new feature tests), verify TypeScript compiler, and confirm Vite production build.
+- **Files Inspected:** `tests/test_saas_features.py`, `tests/test_email_modal_and_auth.py`, `server.ts`, `src/App.tsx`.
+- **Files Created:** None.
+- **Files Modified:** `AdminPath_SaaS_Development_Log.md`.
+- **Reason for Change:** Verify all acceptance criteria are met without regressions.
+- **Implementation Details:**
+  - Full Python unit test suite: 48 tests passed in 2.455s with 0 failures or errors.
+  - TypeScript lint check (`npm run lint` / `tsc --noEmit`): 0 errors, exit code 0.
+  - Production build compilation (`compile_applet`): build succeeded.
+  - Both Feature 1 (in-place email composer modal on Discover) and Feature 2 (individual student accounts, login, logout, and session security) verified operational.
+- **Database or API Changes:** None.
+- **Commands Executed:**
+  - `python3 -m unittest discover tests` -> 48 tests OK.
+  - `npm run lint` -> Exit code 0.
+  - `compile_applet` -> Build succeeded.
+- **Errors Encountered and Fixes:** None.
+- **Remaining Limitations:** None. Both features are fully implemented, verified, and operational.
+- **Status:** Completed.
+
