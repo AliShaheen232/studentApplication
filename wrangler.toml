@@ -13,8 +13,8 @@ migrations_dir = "migrations"
 
 # 2. Cloudflare R2 Document Vault Bucket Binding
 [[r2_buckets]]
-binding = "DOCUMENTS_BUCKET"
 bucket_name = "adminpath-student-documents"
+binding = "adminpath_student_documents"
 
 # 3. Environment Variables
 [vars]
