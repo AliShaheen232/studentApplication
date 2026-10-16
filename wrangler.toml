@@ -6,9 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 
 # 1. Cloudflare D1 Relational Database Binding
 [[d1_databases]]
-binding = "DB"
+binding = "adminpath_prod_d1"
 database_name = "adminpath-prod-d1"
-database_id = "d1-adminpath-cluster-primary"
+database_id = "5cb924b8-7818-470e-983c-6140563d06b1"
 migrations_dir = "migrations"
 
 # 2. Cloudflare R2 Document Vault Bucket Binding
