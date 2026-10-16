@@ -3839,6 +3839,7 @@ async function startServer() {
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
+  } else {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
