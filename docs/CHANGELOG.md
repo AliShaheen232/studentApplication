@@ -2,6 +2,19 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.12.0] - 2026-10-19
+
+### Backup for failed live checks, honest programme details
+
+- Live checks whose pages failed in the Worker (for example over the CPU limit) and found nothing are queued as `backup`; the hourly GitHub run (`crawler/run.ts`, `crawler/backup.ts`) crawls up to 10 of them with no CPU limit and saves the programmes. Discover shows "Queued for a deeper check".
+- Programme details no longer show invented text: unknown deadline, requirements, language and department show "Not listed", and the last check date is real.
+
+## [1.11.1] - 2026-10-18
+
+### Refresh every 100 days
+
+- Saved live results, the search cache and the bulk crawler's per-university refresh now last 100 days instead of 30 (`LIVE_FRESH_DAYS`, `CACHE_DAYS`, `REFRESH_DAYS`).
+
 ## [1.11.0] - 2026-10-18
 
 ### Live discovery by university

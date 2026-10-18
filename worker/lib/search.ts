@@ -1,6 +1,6 @@
 import { DESTINATION_COUNTRIES } from "../../core/destinations.ts";
 
-export const CACHE_DAYS = 30;
+export const CACHE_DAYS = 100;
 export const MAX_QUEUED_PER_DAY = 10;
 
 export function normalizeField(field: string): string {

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { claimBackups, runBackup } from "./backup.ts";
 import { d1Rest } from "./d1.ts";
 import { PoliteFetcher } from "./fetcher.ts";
 import { claimNext, failJob, runSearch } from "./job.ts";
@@ -53,3 +54,13 @@ while (done < maxJobs && Date.now() - started < budgetMs) {
   done++;
 }
 console.log(done ? `Processed ${done} search(es).` : "No pending searches.");
+
+const backups = Date.now() - started < budgetMs ? await claimBackups(db, Number(env("BACKUP_MAX", "10")), Date.now()) : [];
+const backupFetcher = new PoliteFetcher();
+for (const row of backups) {
+  const found = await runBackup(db, backupFetcher, row, Date.now()).catch((err) => {
+    console.error(`Backup failed for ${row.domain}: ${err instanceof Error ? err.message : err}`);
+    return 0;
+  });
+  console.log(`Backup check ${row.subject} at ${row.domain}: ${found} programme(s)`);
+}

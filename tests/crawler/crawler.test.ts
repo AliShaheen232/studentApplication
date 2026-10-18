@@ -267,7 +267,7 @@ describe("search job pipeline", () => {
       .run(`DE|${field.toLowerCase()}`, field, sqlTimestamp(NOW));
   }
 
-  test("crawls, stores programs, contacts and a JSON snapshot, cached for 30 days", async () => {
+  test("crawls, stores programs, contacts and a JSON snapshot, cached for 100 days", async () => {
     const { db, raw } = sqliteDb();
     queue(raw);
     const job = await claimNext(db, NOW);
@@ -288,7 +288,7 @@ describe("search job pipeline", () => {
     const row = raw.prepare("SELECT * FROM search_cache").get() as Record<string, string | number>;
     assert.equal(row.status, "ready");
     assert.equal(row.programs_count, 3);
-    assert.equal(row.expires_at, sqlTimestamp(NOW + 30 * 86400_000));
+    assert.equal(row.expires_at, sqlTimestamp(NOW + 100 * 86400_000));
     assert.equal(JSON.parse(String(row.results_json)).programs.length, 3);
     assert.ok(existsSync(join(out, "DE_computer_science.json")));
 

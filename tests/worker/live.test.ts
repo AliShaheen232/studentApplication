@@ -110,6 +110,15 @@ describe("live discovery", () => {
     assert.equal((await start(bob)).data.status, "fresh");
   });
 
+  test("a live check whose pages all failed is queued for the background crawler", async () => {
+    await start(alice);
+    const f = await alice.request("POST", "/api/discovery/live/finish", { body: { university_id: "univ_new", field: "Computer Science", failed_pages: 3 } });
+    assert.equal(f.data.status, "backup");
+    const uni = (await list(alice)).data.institutions.find((i: { id: string }) => i.id === "univ_new");
+    assert.equal(uni.status, "queued");
+    assert.equal((await start(bob)).data.status, "queued");
+  });
+
   test("robots.txt is respected and pages are capped per university", async () => {
     robots = "User-agent: *\nDisallow: /";
     await start(alice);
@@ -141,7 +150,7 @@ describe("live discovery", () => {
   test("crawl state ages out", () => {
     const now = Date.parse("2026-10-18T12:00:00Z");
     assert.equal(crawlState({ status: "done", claimed_by: null, started_at: null, finished_at: sqlTimestamp(now - 86400_000) }, now), "fresh");
-    assert.equal(crawlState({ status: "done", claimed_by: null, started_at: null, finished_at: sqlTimestamp(now - 31 * 86400_000) }, now), "stale");
+    assert.equal(crawlState({ status: "done", claimed_by: null, started_at: null, finished_at: sqlTimestamp(now - 101 * 86400_000) }, now), "stale");
     assert.equal(crawlState({ status: "running", claimed_by: "x", started_at: sqlTimestamp(now - 60_000), finished_at: null }, now), "running");
     assert.equal(crawlState({ status: "running", claimed_by: "x", started_at: sqlTimestamp(now - 20 * 60_000), finished_at: null }, now), "new");
   });

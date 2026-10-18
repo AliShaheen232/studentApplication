@@ -12,7 +12,7 @@ import { addToSearch, removeFromSearch, searchableSubjects, UNRANKED } from "./s
 import type { Institution } from "./wikidata.ts";
 
 const DAY = 86400_000;
-export const REFRESH_DAYS = 30;
+export const REFRESH_DAYS = 100;
 
 function hash(s: string, len = 16): string {
   return createHash("sha1").update(s).digest("hex").slice(0, len);

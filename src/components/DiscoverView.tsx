@@ -74,7 +74,7 @@ export interface Institution {
   domain: string;
   ranking: number | null;
   tagged: boolean;
-  status: 'fresh' | 'running' | 'stale' | 'new';
+  status: 'fresh' | 'running' | 'queued' | 'stale' | 'new';
   checked_at: string | null;
   programs: InstitutionProgram[];
 }
@@ -243,6 +243,7 @@ export default function DiscoverView({
     const queue: { url: string; score: number; depth: number }[] = [{ url: begin.data.start_url, score: 100, depth: 0 }];
     const seen = new Set<string>([begin.data.start_url]);
     let pages = begin.data.pages || 0;
+    let failedPages = 0;
     setProgress((p) => ({ ...p, [inst.id]: { pages, max, state: 'running' } }));
     while (queue.length && pages < max) {
       if (runRef.current !== run) return 'stopped';
@@ -257,6 +258,7 @@ export default function DiscoverView({
       if (r.data.status === 'done' || r.data.status === 'not_claimed') break;
       if (!r.ok) {
         pages++;
+        if (r.status >= 500) failedPages++;
         continue;
       }
       pages = r.data.pages;
@@ -271,8 +273,8 @@ export default function DiscoverView({
       setProgress((p) => ({ ...p, [inst.id]: { pages, max, state: 'running' } }));
       await sleep(1500);
     }
-    await post('/api/discovery/live/finish', { university_id: inst.id, field });
-    setProgress((p) => ({ ...p, [inst.id]: { pages, max, state: 'done' } }));
+    const end = await post('/api/discovery/live/finish', { university_id: inst.id, field, failed_pages: failedPages });
+    setProgress((p) => ({ ...p, [inst.id]: { pages, max, state: end.data.status === 'backup' ? 'queued' : 'done' } }));
     return 'ok';
   };
 
@@ -659,7 +661,7 @@ export default function DiscoverView({
         </div>
         <div className="flex items-center gap-2 text-[11px] text-slate-500">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-          <span>Checked live on official university websites, saved for 30 days</span>
+          <span>Checked live on official university websites, saved for 100 days</span>
         </div>
       </div>
 
@@ -709,10 +711,12 @@ export default function DiscoverView({
                     ? `Checking ${prog.pages}/${prog.max} pages`
                     : checked
                     ? 'Checked'
+                    : prog?.state === 'queued' || inst.status === 'queued'
+                    ? 'Queued for a deeper check'
                     : prog?.state === 'busy' || inst.status === 'running'
                     ? 'Being checked'
                     : inst.status === 'stale'
-                    ? 'Older than 30 days'
+                    ? 'Older than 100 days'
                     : 'Not checked yet'}
                 </span>
               </div>
@@ -765,6 +769,8 @@ export default function DiscoverView({
                     ? 'Reading the university website...'
                     : checked
                     ? `No ${selectedStudyLevel} programme in ${activeField.name} found on the pages we checked.`
+                    : prog?.state === 'queued' || inst.status === 'queued'
+                    ? 'This website could not be read live. Our background crawler checks it within a day.'
                     : 'Click Start Discovery to check this university.'}
                 </p>
               )}

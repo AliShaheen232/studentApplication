@@ -45,10 +45,12 @@ export default function ProgramDetailsModal({
               <span>•</span>
               <span>{program.subject_category}</span>
               <span>•</span>
-              <span className="flex items-center gap-1 text-slate-500 font-normal">
-                <ShieldCheck className="h-3 w-3 text-emerald-600" /> Official
-                Source Verified
-              </span>
+              {program.program_url && (
+                <span className="flex items-center gap-1 text-slate-500 font-normal">
+                  <ShieldCheck className="h-3 w-3 text-emerald-600" /> From the
+                  official website
+                </span>
+              )}
             </div>
 
             <h3 className="text-xl font-bold text-slate-900 leading-snug">
@@ -91,11 +93,10 @@ export default function ProgramDetailsModal({
               <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <strong className="font-semibold block mb-0.5">
-                  Direct Admissions Inquiries Welcomed
+                  Check the official page before you write
                 </strong>
-                The department actively encourages prospective graduate and
-                research scholars to communicate with admissions coordinators
-                prior to formal filing.
+                Application steps differ by university. An email from AdmitPath
+                is a question to the university, not an application.
               </div>
             </div>
           )}
@@ -140,7 +141,7 @@ export default function ProgramDetailsModal({
                 Application Deadline
               </span>
               <span className="font-semibold text-slate-800 text-xs">
-                {program.deadline || "Rolling basis"}
+                {program.deadline || "Not listed"}
               </span>
             </div>
           </div>
@@ -151,11 +152,13 @@ export default function ProgramDetailsModal({
               Department & Academic Discipline
             </h4>
             <p className="text-slate-600">
-              Offered by{" "}
-              <strong>{program.department || "Academic Faculty"}</strong> under
-              the subject classification{" "}
-              <strong>{program.subject_category}</strong>. Language of
-              instruction is <strong>{program.language}</strong>.
+              {program.department ? (
+                <>
+                  Offered by <strong>{program.department}</strong>.{" "}
+                </>
+              ) : null}
+              Subject: <strong>{program.subject_category}</strong>. Language of
+              instruction: <strong>{program.language || "Not listed"}</strong>.
             </p>
           </div>
 
@@ -166,7 +169,7 @@ export default function ProgramDetailsModal({
             </h4>
             <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-700">
               {program.requirements ||
-                "Recognized undergraduate degree in a related discipline, academic transcripts, proof of language proficiency, and statement of academic intent."}
+                "Not listed on the pages we checked. See the official programme page for the exact requirements."}
             </div>
           </div>
 
@@ -209,11 +212,9 @@ export default function ProgramDetailsModal({
               )}
 
               <div className="text-[11px] text-slate-400 pt-1">
-                Last verified from official institutional source on{" "}
                 {program.last_verified
-                  ? new Date(program.last_verified).toLocaleDateString()
-                  : "October 2026"}
-                .
+                  ? `Last checked on the official website on ${new Date(program.last_verified.replace(" ", "T") + (program.last_verified.includes("Z") ? "" : "Z")).toLocaleDateString()}.`
+                  : "Not checked on the official website yet."}
               </div>
             </div>
           </div>

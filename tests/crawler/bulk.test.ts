@@ -6,6 +6,7 @@ import { gunzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Db } from "../../crawler/d1.ts";
+import { claimBackups, runBackup } from "../../crawler/backup.ts";
 import { claimInstitutions, crawlInstitution, importCountries, programId, runBulk, WriteBudget } from "../../crawler/bulk.ts";
 import { countryName, targetCountries } from "../../crawler/countries.ts";
 import { PoliteFetcher } from "../../crawler/fetcher.ts";
@@ -131,7 +132,7 @@ describe("bulk pipeline", () => {
     assert.deepEqual({ ...country }, { country: "Germany", institutions_total: 3 });
     const again = await importCountries(db, budget, ["DE"], async () => { throw new Error("should not be called"); }, NOW + DAY);
     assert.equal(again, 0);
-    assert.equal(await importCountries(db, budget, ["DE"], async () => [UNI_A], NOW + 31 * DAY), 1);
+    assert.equal(await importCountries(db, budget, ["DE"], async () => [UNI_A], NOW + 101 * DAY), 1);
   });
 
   test("claiming prefers never-crawled and larger institutions", async () => {
@@ -162,7 +163,7 @@ describe("bulk pipeline", () => {
     ]);
     const q = raw.prepare("SELECT status, next_crawl_at FROM institution_queue WHERE domain = 'alpha.de'").get() as Record<string, string>;
     assert.equal(q.status, "done");
-    assert.ok(q.next_crawl_at >= sqlTimestamp(NOW + 30 * DAY) && q.next_crawl_at <= sqlTimestamp(NOW + 34 * DAY));
+    assert.ok(q.next_crawl_at >= sqlTimestamp(NOW + 100 * DAY) && q.next_crawl_at <= sqlTimestamp(NOW + 104 * DAY));
     assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM contacts WHERE email = 'studienberatung@alpha.de'").get()!.n, 1);
     const indexed = raw.prepare("SELECT country_code, subject, level FROM program_search WHERE university_id = ? ORDER BY subject").all(row.university_id) as Record<string, string>[];
     assert.deepEqual(indexed.map((r) => [r.country_code, r.subject, r.level]), [
@@ -211,6 +212,23 @@ describe("bulk pipeline", () => {
     const [again] = await claimInstitutions(db, 1, NOW + DAY);
     const second = await crawlInstitution(db, new PoliteFetcher({ ...noSleep, fetchImpl: site(ALPHA_V1) }), again, { ...opts, now: NOW + DAY });
     assert.equal(second.inserted + second.updated, 0);
+  });
+
+  test("background crawler finishes live checks that failed in the Worker", async () => {
+    const { db, raw } = sqliteDb();
+    await importCountries(db, new WriteBudget(db, NOW, 80000), ["DE"], async () => [UNI_A], NOW);
+    const uid = (raw.prepare("SELECT id FROM universities WHERE domain = 'alpha.de'").get() as { id: string }).id;
+    raw.prepare("INSERT INTO live_crawls (university_id, subject, status, finished_at) VALUES (?, 'Computer Science', 'backup', ?)").run(uid, sqlTimestamp(NOW));
+    const rows = await claimBackups(db, 5, NOW);
+    assert.equal(rows.length, 1);
+    assert.equal(raw.prepare("SELECT status FROM live_crawls").get()!.status, "backup_running");
+    assert.equal((await claimBackups(db, 5, NOW)).length, 0);
+    const found = await runBackup(db, new PoliteFetcher({ ...noSleep, fetchImpl: site(ALPHA_V1) }), rows[0], NOW);
+    assert.equal(found, 1);
+    const lc = raw.prepare("SELECT status, programs_found FROM live_crawls").get() as Record<string, unknown>;
+    assert.deepEqual([lc.status, lc.programs_found], ["done", 1]);
+    assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM program_search WHERE university_id = ? AND subject = 'Computer Science' AND level = 'Master'").get(uid)!.n, 1);
+    assert.equal(raw.prepare("SELECT levels FROM university_subjects WHERE university_id = ? AND subject = 'Computer Science'").get(uid)!.levels, "Master");
   });
 
   test("an unreachable site is retried tomorrow and never wipes existing programmes", async () => {

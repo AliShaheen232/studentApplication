@@ -2,7 +2,7 @@ import { USER_AGENT } from "../../crawler/fetcher.ts";
 import { isAllowed, parseRobots, type RobotsRules } from "../../crawler/robots.ts";
 
 export const LIVE_MAX_PAGES = 8;
-export const LIVE_FRESH_DAYS = 30;
+export const LIVE_FRESH_DAYS = 100;
 export const LIVE_CLAIM_MINUTES = 15;
 export const LIVE_PER_USER_DAY = 60;
 export const LIVE_GLOBAL_DAY = 400;

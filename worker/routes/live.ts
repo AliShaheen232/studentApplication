@@ -41,7 +41,8 @@ interface LiveRow {
   finished_at: string | null;
 }
 
-export function crawlState(row: LiveRow, now = clock.now()): "fresh" | "running" | "stale" | "new" {
+export function crawlState(row: LiveRow, now = clock.now()): "fresh" | "running" | "queued" | "stale" | "new" {
+  if (row.status === "backup" || row.status === "backup_running") return "queued";
   if (row.status === "done" && row.finished_at && row.finished_at > sqlTimestamp(now - LIVE_FRESH_DAYS * DAY)) return "fresh";
   if (row.status === "running" && row.started_at && row.started_at > sqlTimestamp(now - LIVE_CLAIM_MINUTES * 60_000)) return "running";
   return row.finished_at ? "stale" : "new";
@@ -174,6 +175,7 @@ export function registerLiveRoutes(router: Router): void {
 
     const state = crawlState(row);
     if (state === "fresh") return json({ status: "fresh" });
+    if (state === "queued") return json({ status: "queued" });
     if (state === "running") {
       return row.claimed_by === c.user!.id
         ? json({ status: "started", start_url: start.toString(), pages: row.pages ?? 0, max_pages: LIVE_MAX_PAGES })
@@ -342,9 +344,10 @@ export function registerLiveRoutes(router: Router): void {
   });
 
   router.post("/api/discovery/live/finish", requireAuth, async (c) => {
-    const body = await readJson<{ university_id?: unknown; field?: unknown }>(c.req);
+    const body = await readJson<{ university_id?: unknown; field?: unknown; failed_pages?: unknown }>(c.req);
     const field = pick(SUBJECTS, body?.field);
     const universityId = typeof body?.university_id === "string" ? body.university_id.slice(0, 80) : "";
+    const failedPages = Math.min(Math.max(Math.floor(Number(body?.failed_pages) || 0), 0), LIVE_MAX_PAGES);
     if (!field || !universityId) return error(400, "Choose a university and a field of study.");
     const db = c.env.adminpath_prod_d1;
     const row = await db
@@ -355,10 +358,11 @@ export function registerLiveRoutes(router: Router): void {
       return json({ status: "not_claimed", error: "This university is not being checked by you." }, 409);
     }
     const now = sqlTimestamp();
+    const status = failedPages > 0 && !row.programs_found ? "backup" : row.pages > 0 ? "done" : "failed";
     await db.batch([
       db
-        .prepare("UPDATE live_crawls SET status = ?, finished_at = ? WHERE university_id = ? AND subject = ?")
-        .bind(row.pages > 0 ? "done" : "failed", now, universityId, field),
+        .prepare("UPDATE live_crawls SET status = ?, finished_at = ?, last_error = COALESCE(?, last_error) WHERE university_id = ? AND subject = ?")
+        .bind(status, now, status === "backup" ? `${failedPages} page(s) failed in the live check` : null, universityId, field),
       db
         .prepare(
           `INSERT INTO crawl_budget (day, rows_written, live_crawls) VALUES (?, ?, 0)
@@ -366,6 +370,6 @@ export function registerLiveRoutes(router: Router): void {
         )
         .bind(now.slice(0, 10), Number(row.rows_written ?? 0) + 3),
     ]);
-    return json({ status: row.pages > 0 ? "done" : "failed", programs_found: row.programs_found, pages: row.pages });
+    return json({ status, programs_found: row.programs_found, pages: row.pages });
   });
 }

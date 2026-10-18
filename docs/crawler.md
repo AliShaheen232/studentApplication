@@ -35,8 +35,8 @@ This replaces the parser stubs in `scrapers/` for real use.
 
 ### Flow
 1. A student clicks Start Discovery. `POST /api/discovery/jobs` looks up `search_cache` by key `<COUNTRY_CODE>|<field, lower-cased>`.
-2. Fresh entry (newer than 30 days): served from D1 immediately, no crawl.
-3. Missing, older than 30 days, or failed: the entry is set to `pending` (old results stay visible) and the Worker triggers the GitHub workflow through `repository_dispatch` if `GITHUB_DISPATCH_TOKEN` is set. The hourly schedule picks it up otherwise.
+2. Fresh entry (newer than 100 days): served from D1 immediately, no crawl.
+3. Missing, older than 100 days, or failed: the entry is set to `pending` (old results stay visible) and the Worker triggers the GitHub workflow through `repository_dispatch` if `GITHUB_DISPATCH_TOKEN` is set. The hourly schedule picks it up otherwise.
 4. `.github/workflows/crawler.yml` runs `crawler/run.ts`, which claims pending searches (max 3 per run, 25-minute budget), crawls, and writes to D1 over the Cloudflare D1 REST API.
 5. The Discover page shows "Collecting ... 5 to 15 minutes" and polls every 20 seconds until the search is ready.
 
@@ -48,7 +48,7 @@ This replaces the parser stubs in `scrapers/` for real use.
 - `fields.ts`: multilingual keywords per field (for example Computer Science also matches Informatik, Informatique, Informática, Computing) plus the subfields from `core/discoveryData.ts`. Custom search terms use their own words.
 
 ### Storage
-- `search_cache` (migration `0007`): status, counts, pages inspected, `fetched_at`, `expires_at` (30 days, or 7 days when nothing was found), `last_error`, and `results_json`, the JSON snapshot of the search.
+- `search_cache` (migration `0007`): status, counts, pages inspected, `fetched_at`, `expires_at` (100 days, or 7 days when nothing was found), `last_error`, and `results_json`, the JSON snapshot of the search.
 - The same programmes are upserted into `programs` (`source_type = 'official_website'`, `source_url` = the page they came from, `last_verified` = crawl time); a programme found by two searches gets both subjects in `subject_category`. Universities are upserted by domain (seeded names and ids are kept). Contacts are upserted per university and email with `fetched_at`.
 - Each run also uploads the JSON snapshots as a workflow artifact (`crawler/output/*.json`, kept 14 days).
 - Nothing is invented: tuition, deadline and requirements stay empty unless a later adapter reads them.
@@ -68,7 +68,7 @@ This replaces the parser stubs in `scrapers/` for real use.
 - Sites that render programme lists with JavaScript only, or block bots, give fewer results. Wikidata misses some small institutions.
 
 ### Tests
-`tests/crawler/crawler.test.ts` (20): robots rules, registrable domains, Wikidata parsing and fallback query, multilingual field matching, degree detection, programme extraction with noise, language hints, context levels, email rules, link scoring, polite fetcher (robots, non-HTML, 403 block, user agent), full pipeline into D1 with JSON snapshot and 30-day expiry, idempotent re-runs, subject merging, empty results with 7-day retry, exclusive claiming, stuck-job requeue and failure after 3 attempts. Worker side in `tests/worker/catalog.test.ts`.
+`tests/crawler/crawler.test.ts` (20): robots rules, registrable domains, Wikidata parsing and fallback query, multilingual field matching, degree detection, programme extraction with noise, language hints, context levels, email rules, link scoring, polite fetcher (robots, non-HTML, 403 block, user agent), full pipeline into D1 with JSON snapshot and 100-day expiry, idempotent re-runs, subject merging, empty results with 7-day retry, exclusive claiming, stuck-job requeue and failure after 3 attempts. Worker side in `tests/worker/catalog.test.ts`.
 
 ### Unverified
 - Not yet run against live university websites or the live Wikidata endpoint; the build machine has no outside network. First real run: Actions > Discovery crawler > Run workflow, then check the log and the JSON artifact.
@@ -80,11 +80,11 @@ Discover no longer waits for a crawl in the target countries: everything is coll
 All of Europe (AL AD AT BA BE BG BY CH CY CZ DE DK EE ES FI FR GB GR HR HU IE IS IT LI LT LU LV MC MD ME MK MT NL NO PL PT RO RS SE SI SK SM UA VA XK) plus RU TR CN MY SG AU CA US KR ZA JP AE PK. Change with the `CRAWL_COUNTRIES` env var (space or comma separated ISO codes). Defined in `crawler/countries.ts`.
 
 ### How it works (`crawler/bulk.ts`, run by `crawler/bulk-run.ts`)
-1. Import: every institution in each country from Wikidata (up to 5,000 per country), into `universities` and the `institution_queue`. Re-imported every 30 days to pick up new institutions. Seeded universities keep their id and name.
+1. Import: every institution in each country from Wikidata (up to 5,000 per country), into `universities` and the `institution_queue`. Re-imported every 100 days to pick up new institutions. Seeded universities keep their id and name.
 2. Crawl: each hourly run claims never-crawled institutions first (largest first), then ones due for refresh. Each university gets up to 25 same-site pages and up to 300 programmes, for all subjects at once.
 3. Subjects: every programme title is tagged with all matching subjects (`classifySubjects`), with keywords in English, German, French, Spanish, Italian, Dutch, Nordic languages, Chinese, Russian, Japanese, Korean and Turkish. Untagged titles get "Other". Generic headings like "Master's programmes" are dropped.
 4. Writes only what changed: new programmes are inserted, changed ones updated, unchanged ones not touched. Programmes no longer found are marked `removed_at` (hidden in search), but only when the site was reached and still listed programmes, so an outage never wipes data.
-5. Refresh: a crawled institution is due again after 30 to 33 days (spread so not all come due on one day). A site that cannot be reached is retried the next day, then monthly after 3 failures.
+5. Refresh: a crawled institution is due again after 100 to 103 days (spread so not all come due on one day). A site that cannot be reached is retried the next day, then every 100 days after 3 failures.
 6. Budget: D1 free plan allows 100,000 row writes a day. The crawler stops at `D1_WRITE_BUDGET_PER_DAY` (60,000) per UTC day, tracked in `crawl_budget`, leaving room for the app. It counts the real `rows_written` D1 reports (index updates included), not the number of statements, and stops early when the next batch might not fit. If D1 still refuses writes, the run stops cleanly and resumes after the reset (00:00 UTC). The first full load therefore takes about 2 to 3 weeks; countries become searchable as they fill.
 7. Snapshots: at most once a day per changed country, `crawler/output/snapshots/<CC>.json.gz` (universities and programmes, no contacts) is written and uploaded to the R2 bucket `admitpath-catalog` under `snapshots/`. Also kept 14 days as a workflow artifact.
 
@@ -105,12 +105,12 @@ All of Europe (AL AD AT BA BE BG BY CH CY CZ DE DK EE ES FI FR GB GR HR HU IE IS
 5. Optional local run: `npm run crawl:bulk` with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` set in the shell.
 
 ### Config
-`CRAWL_COUNTRIES`, `D1_WRITE_BUDGET_PER_DAY` (60000), `BULK_TIME_BUDGET_MIN` (40), `BULK_BATCH_SIZE` (16), `CRAWL_CONCURRENCY` (8), `BULK_MAX_PAGES` (12), `BULK_MAX_PROGRAMS` (300), `BULK_MODE` (`tags`, or `full` for the old behaviour).
+`CRAWL_COUNTRIES`, `D1_WRITE_BUDGET_PER_DAY` (60000), `BULK_TIME_BUDGET_MIN` (40), `BULK_BATCH_SIZE` (16), `CRAWL_CONCURRENCY` (8), `BULK_MAX_PAGES` (12), `BULK_MAX_PROGRAMS` (300), `BULK_MODE` (`tags`, or `full` for the old behaviour), `BACKUP_MAX` (10: live checks finished by `crawler/run.ts` after student searches, see `docs/live-discovery.md`).
 
 Since 1.11.0 the bulk crawler runs in `tags` mode: it visits each university as before but writes only the subjects and levels it found (`university_subjects`, plus `institution_queue.tags` to skip unchanged tags), not programme rows. Programmes are crawled live from Discover; see `docs/live-discovery.md`.
 
 ### Tests
-`tests/crawler/bulk.test.ts`: multilingual subjects and degree levels, generic heading filter, country list, import and seeded-university reuse, 30-day re-import, claim order, change-only writes, removal marking, outage protection with next-day retry, write budget stop, real rows_written metering, clean stop when D1 refuses writes, gzipped snapshot without contacts. Worker: instant answer with coverage, coverage list, removed programmes hidden (`tests/worker/catalog.test.ts`).
+`tests/crawler/bulk.test.ts`: multilingual subjects and degree levels, generic heading filter, country list, import and seeded-university reuse, 100-day re-import, claim order, change-only writes, removal marking, outage protection with next-day retry, write budget stop, real rows_written metering, clean stop when D1 refuses writes, gzipped snapshot without contacts. Worker: instant answer with coverage, coverage list, removed programmes hidden (`tests/worker/catalog.test.ts`).
 
 ### Unverified
 - Not yet run against the live Wikidata endpoint or real university sites from this build machine. Watch the first workflow runs: the log prints "Imported N institutions for <country>" and "Batch done: ...".

@@ -127,7 +127,7 @@ describe("catalog and discovery", () => {
     assert.equal(results.data.stats.lastUpdated, "2026-10-10 08:00:00.000");
   });
 
-  test("results older than 30 days are re-queued and old results stay visible", async () => {
+  test("results older than 100 days are re-queued and old results stay visible", async () => {
     raw.prepare(`INSERT INTO search_cache (search_key, country, country_code, field, status, programs_count, fetched_at, expires_at)
       VALUES ('DE|computer science', 'Germany', 'DE', 'Computer Science', 'ready', 5, '2026-08-01 08:00:00.000', '2026-08-31 08:00:00.000')`).run();
     const res = await student.request("POST", "/api/discovery/jobs", { body: { country_code: "DE", field: "Computer Science" } });
