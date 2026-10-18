@@ -81,7 +81,7 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
 
   const fetchAllAdminData = async () => {
     try {
-      const headers = { "x-impersonate-role": "admin" };
+      const headers = {};
       const [mRes, sRes, subRes, pRes, aRes] = await Promise.all([
         fetch("/api/admin/metrics", { headers }),
         fetch("/api/admin/students", { headers }),
@@ -112,7 +112,6 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-impersonate-role": "admin",
         },
         body: JSON.stringify({
           ...formData,
@@ -142,7 +141,6 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-impersonate-role": "admin",
         },
         body: JSON.stringify(formData),
       });
@@ -167,7 +165,6 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-impersonate-role": "admin",
         },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -187,7 +184,7 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
         `/api/admin/students/${studentId}/reset-credentials`,
         {
           method: "POST",
-          headers: { "x-impersonate-role": "admin" },
+          headers: {},
         },
       );
       const data = await res.json();
@@ -207,7 +204,7 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
     setIsRunningTests(true);
     try {
       const res = await fetch("/api/admin/tests/run", {
-        headers: { "x-impersonate-role": "admin" },
+        headers: {},
       });
       const data = await res.json();
       setTestOutput(data);
@@ -757,7 +754,6 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
                           method: "PUT",
                           headers: {
                             "Content-Type": "application/json",
-                            "x-impersonate-role": "admin",
                           },
                           body: JSON.stringify({
                             daily_send_limit: parseInt(newCap),

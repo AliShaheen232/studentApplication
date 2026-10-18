@@ -1,22 +1,41 @@
 # AdminPath Cloudflare Worker / Pages Deployment Configuration
 name = "adminpath-saas"
-main = "server.ts"
+main = "worker/index.ts"
 compatibility_date = "2026-10-15"
 compatibility_flags = ["nodejs_compat"]
 
-# 1. Cloudflare D1 Relational Database Binding
+# 1. Multi-Domain Routing Surfaces
+# - Public marketing and checkout: adminpath.com
+# - Student Application: app.adminpath.com
+# - Admin Dashboard: admin.adminpath.com
+routes = [
+  { pattern = "adminpath.com/*", zone_name = "adminpath.com" },
+  { pattern = "app.adminpath.com/*", zone_name = "adminpath.com" },
+  { pattern = "admin.adminpath.com/*", zone_name = "adminpath.com" }
+]
+
+# Frontend build (vite build -> dist). /api/* always reaches the Worker first.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+# 2. Cloudflare D1 Relational Database Binding
 [[d1_databases]]
 binding = "adminpath_prod_d1"
 database_name = "adminpath-prod-d1"
-database_id = "5cb924b8-7818-470e-983c-6140563d06b1"
+database_id = "52233c73-e7cb-4c2e-a027-19135702a64a"
 migrations_dir = "migrations"
+remote = true
 
-# 2. Cloudflare R2 Document Vault Bucket Binding
+# 3. Cloudflare R2 Document Vault Bucket Binding
 [[r2_buckets]]
 bucket_name = "adminpath-student-documents"
 binding = "adminpath_student_documents"
+remote = true
 
-# 3. Environment Variables
+# 4. Environment Variables
 [vars]
 HOST = "0.0.0.0"
 DAILY_CAP_DEFAULT = "25"
@@ -27,14 +46,18 @@ TZ_WINDOW_END_HOUR = "17"
 MAX_BOUNCE_RATE_PERCENT = "5.0"
 FOLLOW_UP_MIN_DAYS = "7"
 STORAGE_PROVIDER = "r2"
+SESSION_TTL_HOURS = "168"
+LOGIN_MAX_FAILURES = "5"
+LOGIN_LOCKOUT_MINUTES = "15"
+LOGIN_IP_MAX_FAILURES = "20"
+# Public OAuth client ID from Google Cloud Console. The client secret and GMAIL_TOKEN_KEY are secrets, never put them here.
+# Public address used for Google OAuth redirect URIs. .dev.vars overrides it locally with http://127.0.0.1:8787.
+APP_ORIGIN = "https://app.adminpath.com"
+# Repo whose "Discovery crawler" workflow is started for new searches. The token is the GITHUB_DISPATCH_TOKEN secret.
+GITHUB_REPO = "AliShaheen232/studentApplication"
+GOOGLE_CLIENT_ID = "850314830717-gfghmrb6ofq06o60te6u0gbsq15qjm6m.apps.googleusercontent.com"
 
-# 4. Multi-Domain Routing Surfaces
-# - Public marketing and checkout: adminpath.com
-# - Student Application: app.adminpath.com
-# - Admin Dashboard: admin.adminpath.com
-[env.production]
-routes = [
-  { pattern = "adminpath.com/*", zone_name = "adminpath.com" },
-  { pattern = "app.adminpath.com/*", zone_name = "adminpath.com" },
-  { pattern = "admin.adminpath.com/*", zone_name = "adminpath.com" }
-]
+# Local dev must stay on 8787 to match the Google OAuth redirect URIs.
+[dev]
+ip = "127.0.0.1"
+port = 8787

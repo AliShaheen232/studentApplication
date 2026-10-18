@@ -92,6 +92,15 @@ export default function DiscoverView({
     lastUpdated: string;
   } | null>(null);
 
+  const [search, setSearch] = useState<{
+    status: string;
+    stale: boolean;
+    fetched_at: string | null;
+    programs_count: number;
+    institutions_count: number;
+    last_error: string | null;
+  } | null>(null);
+
   // Raw Results & Dynamic Filter
   const [programs, setPrograms] = useState<DiscoveredProgram[]>([]);
   const [selectedStudyLevel, setSelectedStudyLevel] = useState<string>('all');
@@ -122,13 +131,20 @@ export default function DiscoverView({
     try {
       const c = countryName || activeCountry.name;
       const f = fieldCategory || activeField.name;
-      const res = await fetch(`/api/discovery/results?country=${encodeURIComponent(c)}&field=${encodeURIComponent(f)}`);
+      const res = await fetch(
+        `/api/discovery/results?country=${encodeURIComponent(c)}&country_code=${encodeURIComponent(activeCountry.code)}&field=${encodeURIComponent(f)}`
+      );
       if (res.ok) {
         const data = await res.json();
         setPrograms(data.programs || []);
+        setSearch(data.search || null);
         if (data.stats) {
-          setJobStats(data.stats);
+          setJobStats({
+            ...data.stats,
+            lastUpdated: data.stats.lastUpdated ? new Date(data.stats.lastUpdated.replace(' ', 'T') + 'Z').toLocaleString() : 'Not crawled yet'
+          });
         }
+        return data.search || null;
       }
     } catch (err) {
       console.error('Failed to load discovery results:', err);
@@ -139,10 +155,24 @@ export default function DiscoverView({
     loadResults();
   }, [selectedCountryCode, selectedFieldId]);
 
+  const searchTerm = customSearchTerm.trim() || activeField.name;
+  const isCrawling = search?.status === 'pending' || search?.status === 'running';
+
+  useEffect(() => {
+    if (!isCrawling) return;
+    const timer = window.setInterval(async () => {
+      const next = await loadResults(activeCountry.name, searchTerm);
+      if (next && next.status === 'ready') {
+        onNotify(`New results are ready: ${next.programs_count} programmes from ${next.institutions_count} universities in ${activeCountry.name}.`);
+      }
+    }, 20000);
+    return () => window.clearInterval(timer);
+  }, [isCrawling, activeCountry.name, searchTerm]);
+
   // Execute Durable Discovery Job
   const handleStartDiscovery = async () => {
     setIsDiscovering(true);
-    setJobProgressStage('Initializing national university catalog and accredited registries...');
+    setJobProgressStage(`Searching the AdmitPath catalogue for ${activeCountry.name}...`);
     try {
       const payload = {
         country: activeCountry.name,
@@ -171,31 +201,8 @@ export default function DiscoverView({
       const jobData = await res.json();
       setActiveJobId(jobData.job_id);
 
-      // Simulate sequential authentic discovery progress steps
-      const stages = [
-        `Finding accredited institutions in ${activeCountry.name}...`,
-        `Inspecting official university catalogues & admissions portals...`,
-        `Extracting academic programmes for ${activeField.name}...`,
-        `Verifying curriculum, degree designations & official contacts...`,
-        `Saving and indexing verified opportunities in database...`
-      ];
-
-      for (let i = 0; i < stages.length; i++) {
-        setJobProgressStage(stages[i]);
-        await new Promise((r) => setTimeout(r, 650));
-      }
-
-      // Reload fresh persisted results
       await loadResults(activeCountry.name, customSearchTerm.trim() || activeField.name);
-
-      setJobStats({
-        institutionsDiscovered: jobData.institutions_discovered || 8,
-        programmesExtracted: jobData.programmes_extracted || 14,
-        pagesInspected: 32,
-        lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      });
-
-      onNotify(`Discovery complete: Found ${jobData.programmes_extracted || 'multiple'} verified programmes in ${activeCountry.name}.`);
+      onNotify(jobData.message);
     } catch (err: any) {
       console.error(err);
       onNotify(`Discovery error: ${err.message}`);
@@ -508,13 +515,35 @@ export default function DiscoverView({
         )}
       </div>
 
+      {search && (isCrawling || search.stale || search.status === 'failed' || (search.status === 'ready' && search.last_error)) && (
+        <div
+          className={`rounded-lg px-4 py-3 text-xs flex items-start gap-2.5 border ${
+            search.status === 'failed' ? 'bg-rose-50 border-rose-200 text-rose-900' : 'bg-amber-50 border-amber-200 text-amber-900'
+          }`}
+        >
+          {isCrawling ? <RotateCw className="h-4 w-4 animate-spin shrink-0 mt-0.5" /> : <Clock className="h-4 w-4 shrink-0 mt-0.5" />}
+          <div>
+            {isCrawling && (
+              <>
+                <strong>Collecting {searchTerm} programmes from university websites in {activeCountry.name}.</strong>{' '}
+                This usually takes 5 to 15 minutes. You can leave this page; results appear here automatically.
+                {search.stale && ' The results below are from the last crawl.'}
+              </>
+            )}
+            {!isCrawling && search.stale && <>These results are more than 30 days old. Click Start Discovery to refresh them.</>}
+            {search.status === 'failed' && <> The last crawl failed. Click Start Discovery to try again.</>}
+            {!isCrawling && !search.stale && search.status === 'ready' && search.last_error && <>{search.last_error}</>}
+          </div>
+        </div>
+      )}
+
       {/* 2. PROVENANCE & CRAWL COVERAGE STATS BAR */}
       {jobStats && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
           <div className="flex flex-wrap items-center gap-4">
             <span className="flex items-center gap-1.5 font-medium text-slate-800">
               <Building2 className="h-3.5 w-3.5 text-slate-500" />
-              Institutions Inspected: <strong>{jobStats.institutionsDiscovered}</strong>
+              Universities: <strong>{jobStats.institutionsDiscovered}</strong>
             </span>
             <span className="flex items-center gap-1.5 font-medium text-slate-800">
               <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
@@ -522,13 +551,13 @@ export default function DiscoverView({
             </span>
             <span className="flex items-center gap-1.5 text-slate-500">
               <Clock className="h-3.5 w-3.5" />
-              Last Verified: {jobStats.lastUpdated}
+              Last crawled: {jobStats.lastUpdated}
             </span>
           </div>
 
           <div className="flex items-center gap-2 text-[11px] text-slate-500">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Official university catalogue provenance recorded</span>
+            <span>Every programme links to the university page it came from</span>
           </div>
         </div>
       )}
@@ -728,7 +757,9 @@ export default function DiscoverView({
           </div>
           <h3 className="text-base font-bold text-slate-800">No matching programmes found</h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            No programmes currently match your selected filters in {activeCountry.name}. Click &ldquo;Start Discovery&rdquo; to crawl official university catalogues, or clear optional filters.
+            {isCrawling
+              ? `We are collecting programmes from university websites in ${activeCountry.name}. Results will appear here.`
+              : `No saved programmes for this search in ${activeCountry.name} yet. Click "Start Discovery" to collect them from official university websites.`}
           </p>
           <button
             onClick={handleStartDiscovery}

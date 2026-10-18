@@ -54,6 +54,7 @@ import DiscoverView, { DiscoveredProgram } from "./components/DiscoverView";
 import ProgramDetailsModal from "./components/ProgramDetailsModal";
 import EmailComposerModal from "./components/EmailComposerModal";
 import LoginView from "./components/LoginView";
+import OnboardingView from "./components/OnboardingView";
 import BrandIcon from "./components/BrandIcon";
 
 interface University {
@@ -149,41 +150,20 @@ function AppContent() {
     replies: [],
     bounce_rate: 0,
   });
-  const [profile, setProfile] = useState<any>({
-    full_name: "Alex Vance",
-    nationality: "Indonesia",
-    country_of_residence: "Indonesia",
-    gpa: 3.86,
-    max_gpa: 4.0,
-    qualification: "Bachelor of Science in Computer Science",
-    target_level: "Master",
-    intake_term: "Fall 2026",
-    subjects: "Computer Science, Data Science & AI",
-    countries: "USA, United Kingdom, Germany, Canada",
-    preferred_universities: "MIT, Stanford, Oxford, TU Munich",
-    budget_max: 45000,
-    ielts_score: 7.5,
-    toefl_score: 105,
-    experience:
-      "2 years applied software engineering and undergraduate ML research assistant",
-    academic_achievements:
-      "Dean's List for 6 semesters, Regional IEEE paper author",
-    additional_preferences: "Departmental Graduate Assistantship desired",
-  });
+  const [profile, setProfile] = useState<any>({});
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [documents, setDocuments] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({
     daily_cap: 25,
     ramp_stage: 1,
-    gmail_connected: 1,
-    gmail_email: "alex.scholar@gmail.com",
+    gmail_connected: 0,
+    gmail_email: null,
   });
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [suppressionList, setSuppressionList] = useState<any[]>([]);
 
   // Authentication & Session States
-  const [sessionToken, setSessionToken] = useState<string | null>(() =>
-    localStorage.getItem("adminpath_token"),
-  );
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
@@ -230,22 +210,9 @@ function AppContent() {
   };
 
   // Helper for auth headers
-  const getAuthHeaders = (tokenOverride?: string): Record<string, string> => {
-    const activeToken =
-      tokenOverride ||
-      sessionToken ||
-      localStorage.getItem("adminpath_token");
-    if (activeToken) {
-      return {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${activeToken}`,
-      };
-    }
-    return {
-      "Content-Type": "application/json",
-      "x-impersonate-role": "student",
-    };
-  };
+  const getAuthHeaders = (_tokenOverride?: string): Record<string, string> => ({
+    "Content-Type": "application/json",
+  });
 
   // Initial & Background Data Fetching
   const fetchAllData = async (tokenOverride?: string) => {
@@ -306,19 +273,12 @@ function AppContent() {
   // Auth & Session Verification on Mount
   useEffect(() => {
     const verifyAuth = async () => {
-      const storedToken = localStorage.getItem("adminpath_token");
-      if (!storedToken) {
-        setIsAuthLoading(false);
-        return;
-      }
       try {
-        const res = await fetch("/api/auth/me", {
-          headers: { Authorization: `Bearer ${storedToken}` },
-        });
+        const res = await fetch("/api/auth/me");
         if (res.ok) {
           const userData = await res.json();
           setCurrentUser(userData);
-          setSessionToken(storedToken);
+          setSessionToken("cookie");
           if (userData.student_profile) {
             setProfile(userData.student_profile);
           }
@@ -330,10 +290,8 @@ function AppContent() {
                 userData.gmail?.email || userData.settings?.gmail_email,
             });
           }
-          await fetchAllData(storedToken);
+          await fetchAllData();
         } else {
-          // Token is expired or revoked
-          localStorage.removeItem("adminpath_token");
           setSessionToken(null);
           setCurrentUser(null);
         }
@@ -348,18 +306,11 @@ function AppContent() {
 
   // Logout Handler
   const handleLogout = async () => {
-    const token = sessionToken || localStorage.getItem("adminpath_token");
-    if (token) {
-      try {
-        await fetch("/api/auth/logout", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch (err) {
-        console.error("Logout error:", err);
-      }
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout error:", err);
     }
-    localStorage.removeItem("adminpath_token");
     setSessionToken(null);
     setCurrentUser(null);
     setDrafts([]);
@@ -548,16 +499,17 @@ function AppContent() {
     return (
       <LoginView
         onLoginSuccess={(token, user) => {
-          localStorage.setItem("adminpath_token", token);
-          setSessionToken(token);
+          setSessionToken("cookie");
           setCurrentUser(user);
           if (user.student_profile) {
             setProfile(user.student_profile);
           }
-          fetchAllData(token);
+          fetchAllData();
           showNotify(`Welcome back, ${user.full_name || "Scholar"}!`);
           if (user.role === "admin") {
             navigate("/admin/dashboard");
+          } else if (!user.onboarding_complete) {
+            navigate("/onboarding");
           } else {
             navigate("/dashboard");
           }
@@ -591,21 +543,37 @@ function AppContent() {
     return (
       <LoginView
         onLoginSuccess={(token, user) => {
-          localStorage.setItem("adminpath_token", token);
-          setSessionToken(token);
+          setSessionToken("cookie");
           setCurrentUser(user);
           if (user.student_profile) {
             setProfile(user.student_profile);
           }
-          fetchAllData(token);
+          fetchAllData();
           showNotify(`Welcome back, ${user.full_name || "Scholar"}!`);
           if (user.role === "admin") {
             navigate("/admin/dashboard");
+          } else if (!user.onboarding_complete) {
+            navigate("/onboarding");
           } else {
             navigate("/dashboard");
           }
         }}
         onBackToPublic={() => navigate("/?surface=public")}
+      />
+    );
+  }
+
+  if (currentUser && currentUser.role === "student" && !currentUser.onboarding_complete) {
+    return (
+      <OnboardingView
+        profile={currentUser.student_profile}
+        mode="onboarding"
+        onSaved={(saved) => {
+          setProfile(saved);
+          setCurrentUser({ ...currentUser, onboarding_complete: true, full_name: saved.full_name, student_profile: saved });
+          navigate("/dashboard");
+          showNotify("Profile saved. Welcome to AdmitPath!");
+        }}
       />
     );
   }
@@ -1428,9 +1396,23 @@ function AppContent() {
           )}
 
           {/* 8. READ-ONLY STUDENT PROFILE TAB */}
-          {activeStudentTab === "profile" && (
+          {activeStudentTab === "profile" && isEditingProfile && (
+            <OnboardingView
+              profile={profile}
+              mode="edit"
+              onCancel={() => setIsEditingProfile(false)}
+              onSaved={(saved) => {
+                setProfile(saved);
+                setCurrentUser((u: any) => (u ? { ...u, full_name: saved.full_name, student_profile: saved } : u));
+                setIsEditingProfile(false);
+                showNotify("Profile updated.");
+              }}
+            />
+          )}
+          {activeStudentTab === "profile" && !isEditingProfile && (
             <StudentProfile
               profile={profile}
+              onEdit={() => setIsEditingProfile(true)}
               documents={documents}
               onUploadDoc={handleUploadDoc}
               onDeleteDoc={handleDeleteDoc}

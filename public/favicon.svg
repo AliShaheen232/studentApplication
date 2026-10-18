@@ -15,6 +15,4 @@
   <path d="M16 8L8 12.5L16 17L24 12.5L16 8Z" fill="url(#emeraldGrad)"/>
   <!-- Cap Pedestal / Path -->
   <path d="M11 14.5V19C11 21.5 13.2 23 16 23C18.8 23 21 21.5 21 19V14.5L16 17.5L11 14.5Z" fill="#10b981" fill-opacity="0.85"/>
-  <!-- Path / Route Lines -->
-  <path d="M16 23V27.5" stroke="#a7f3d0" stroke-width="1.5" stroke-linecap="round"/>
 </svg>

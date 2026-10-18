@@ -12,4 +12,7 @@ coverage/
 *.sqlite-*
 admitpath.db*
 __pycache__/
+.wrangler/
+crawler/output/
+.dev.vars*
 *.pyc

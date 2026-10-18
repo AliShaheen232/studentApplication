@@ -13,8 +13,27 @@ import {
   GraduationCap,
   Globe,
   Award,
-  BookOpen
+  BookOpen,
+  Pencil
 } from 'lucide-react';
+
+const NOT_SET = 'Not set';
+const show = (value: unknown) => (value === null || value === undefined || value === '' ? NOT_SET : String(value));
+const ENGLISH_LABELS: Record<string, string> = {
+  ielts: 'IELTS',
+  toefl: 'TOEFL',
+  pte: 'PTE',
+  duolingo: 'Duolingo',
+  native: 'Native speaker',
+  planned: 'Test planned',
+  none: 'No test yet'
+};
+function englishSummary(p: any): string {
+  const label = ENGLISH_LABELS[p.english_test];
+  if (!label) return NOT_SET;
+  const score = p[`${p.english_test}_score`];
+  return score !== null && score !== undefined ? `${label} ${score}` : label;
+}
 
 interface StudentProfileProps {
   profile: any;
@@ -22,6 +41,7 @@ interface StudentProfileProps {
   onUploadDoc: (docType: string, filename: string, size: number, mimeType: string) => Promise<void>;
   onDeleteDoc: (docId: string) => Promise<void>;
   onNotify: (msg: string) => void;
+  onEdit?: () => void;
 }
 
 export default function StudentProfile({
@@ -29,7 +49,8 @@ export default function StudentProfile({
   documents,
   onUploadDoc,
   onDeleteDoc,
-  onNotify
+  onNotify,
+  onEdit
 }: StudentProfileProps) {
   const [docType, setDocType] = useState('Curriculum Vitae');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -72,19 +93,25 @@ export default function StudentProfile({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner: Read-Only Administrator Managed Notice */}
       <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-4 flex items-start gap-3 shadow-2xs">
         <div className="p-1 rounded-md bg-emerald-100 text-emerald-800 shrink-0 mt-0.5">
-          <Lock className="h-4 w-4" />
+          <UserCheck className="h-4 w-4" />
         </div>
-        <div className="text-xs text-emerald-950">
-          <div className="font-semibold text-emerald-900">
-            Institutional Read-Only Profile Mode
-          </div>
+        <div className="text-xs text-emerald-950 flex-1">
+          <div className="font-semibold text-emerald-900">Your profile drives your matches and emails</div>
           <div className="mt-0.5 text-emerald-800 leading-relaxed">
-            Your academic records, degree qualifications, GPA verification, and country preferences are authenticated and managed directly by your AdminPath administrator to maintain admissions credibility. To update profile information, please contact your administrator.
+            Keep it accurate. Program matching uses your degree, subjects, countries, budget and language scores, and the email composer uses your experience and research interests.
           </div>
         </div>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="shrink-0 px-3 py-1.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold flex items-center gap-1.5"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit profile
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -93,7 +120,7 @@ export default function StudentProfile({
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-2xs">
             <div className="flex items-center gap-4">
               <div className="h-14 w-14 rounded-full bg-slate-100 border border-slate-200 text-slate-800 flex items-center justify-center font-serif-editorial text-xl font-bold">
-                {(profile.full_name || 'Alex Vance')
+                {(profile.full_name || '?')
                   .split(' ')
                   .map((n: string) => n[0])
                   .join('')
@@ -101,13 +128,13 @@ export default function StudentProfile({
               </div>
               <div>
                 <h3 className="font-serif-editorial text-lg font-bold text-slate-900 leading-tight">
-                  {profile.full_name || 'Alex Vance'}
+                  {show(profile.full_name)}
                 </h3>
                 <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
                   <Globe className="h-3.5 w-3.5 text-slate-400" />
-                  <span>{profile.nationality || 'International'}</span>
+                  <span>{show(profile.nationality)}</span>
                   <span>•</span>
-                  <span>{profile.target_level || 'Master'} Candidate</span>
+                  <span>{profile.target_level ? `${profile.target_level} applicant` : NOT_SET}</span>
                 </div>
               </div>
             </div>
@@ -119,34 +146,36 @@ export default function StudentProfile({
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500">Academic Standing</span>
                 <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  GPA: {profile.gpa || '3.86'} / {profile.max_gpa || '4.0'}
+                  GPA: {show(profile.gpa)} / {show(profile.max_gpa)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500">Degree Level</span>
-                <span className="font-medium text-slate-800">{profile.target_level || 'Master'}</span>
+                <span className="font-medium text-slate-800">{show(profile.target_level)}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500">Target Intake</span>
-                <span className="font-medium text-slate-800">{profile.intake_term || 'Fall 2026'}</span>
+                <span className="font-medium text-slate-800">{show(profile.intake_term)}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500">English Proficiency</span>
                 <span className="font-medium text-slate-800">
-                  IELTS {profile.ielts_score || '7.5'} • TOEFL {profile.toefl_score || '105'}
+                  {englishSummary(profile)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500">Max Budget Target</span>
                 <span className="font-medium text-slate-800">
-                  ${(profile.budget_max || 45000).toLocaleString()} {profile.currency || 'USD'}
+                  {profile.budget_max !== null && profile.budget_max !== undefined
+                    ? `${Number(profile.budget_max).toLocaleString()} ${profile.currency || ''}`
+                    : NOT_SET}
                 </span>
               </div>
             </div>
 
             <div className="mt-5 p-3 bg-slate-50 rounded-lg border border-slate-100 text-[11px] text-slate-500 flex items-center gap-2">
               <Shield className="h-4 w-4 text-emerald-700 shrink-0" />
-              <span>Verified credentials signed by AdminPath compliance team.</span>
+              <span>Only you can see and change your profile.</span>
             </div>
           </div>
 
@@ -157,8 +186,10 @@ export default function StudentProfile({
               Target Countries
             </h4>
             <div className="flex flex-wrap gap-1.5">
-              {(profile.countries || 'USA, United Kingdom, Germany, Canada')
+              {!profile.countries && <span className="text-xs text-slate-400">{NOT_SET}</span>}
+              {(profile.countries || '')
                 .split(',')
+                .filter((c: string) => c.trim())
                 .map((c: string, idx: number) => (
                   <span
                     key={idx}
@@ -178,53 +209,52 @@ export default function StudentProfile({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Academic Background</h3>
-                <p className="text-xs text-slate-500">Verified credentials entered during onboarding</p>
+                <p className="text-xs text-slate-500">What you entered during setup</p>
               </div>
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
-                <Lock className="h-3 w-3" /> Read-Only
-              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Full Legal Name</label>
                 <div className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 font-medium">
-                  {profile.full_name || 'Alex Vance'}
+                  {show(profile.full_name)}
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Current / Completed Qualification</label>
                 <div className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800">
-                  {profile.qualification || 'Bachelor of Science in Computer Science'}
+                  {show(profile.qualification)}
+                  {profile.current_institution ? `, ${profile.current_institution}` : ''}
+                  {profile.graduation_year ? ` (${profile.graduation_year})` : ''}
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Nationality & Citizenship</label>
                 <div className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800">
-                  {profile.nationality || 'International'}
+                  {show(profile.nationality)}
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Country of Current Residence</label>
                 <div className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800">
-                  {profile.country_of_residence || 'International'}
+                  {show(profile.country_of_residence)}
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Cumulative Grade Point Average (GPA)</label>
                 <div className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 font-semibold text-emerald-800">
-                  {profile.gpa || '3.86'} / {profile.max_gpa || '4.0'}
+                  {show(profile.gpa)} / {show(profile.max_gpa)}
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Intended Field of Study</label>
                 <div className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 font-medium">
-                  {profile.subjects || 'Computer Science, Data Science & AI'}
+                  {show(profile.subjects)}
                 </div>
               </div>
             </div>
@@ -232,28 +262,36 @@ export default function StudentProfile({
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Preferred Institutions</label>
               <div className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800">
-                {profile.preferred_universities || 'MIT, Stanford, Oxford, TU Munich'}
+                {show(profile.preferred_universities)}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Research Experience & Projects</label>
-              <div className="w-full p-3 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 leading-relaxed">
-                {profile.experience || '2 years applied software engineering and undergraduate ML research assistant'}
+              <label className="block text-xs font-medium text-slate-500 mb-1">Research Interests</label>
+              <div className="w-full p-3 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 leading-relaxed whitespace-pre-line">
+                {show(profile.research_interests)}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Experience & Projects</label>
+              <div className="w-full p-3 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 leading-relaxed whitespace-pre-line">
+                {show(profile.experience)}
+                {profile.work_experience_years ? ` (${profile.work_experience_years} years of work experience)` : ''}
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Academic Honors & Publications</label>
               <div className="w-full p-3 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 leading-relaxed">
-                {profile.academic_achievements || "Dean's List for 6 semesters, Regional IEEE paper author"}
+                {show(profile.academic_achievements)}
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Additional Admissions Preferences</label>
               <div className="w-full p-3 text-xs rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 leading-relaxed">
-                {profile.additional_preferences || 'Departmental Graduate Assistantship desired'}
+                {show(profile.additional_preferences)}
               </div>
             </div>
           </div>

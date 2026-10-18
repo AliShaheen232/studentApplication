@@ -62,7 +62,7 @@ export function detectSurfaceFromLocation(pathname: string, hostname: string, se
   if (hostname.startsWith('app.')) return 'student';
   if (hostname.includes('adminpath.com') && !hostname.startsWith('admin.') && !hostname.startsWith('app.')) {
     if (pathname.startsWith('/admin')) return 'admin';
-    if (['/dashboard', '/discover', '/programmes', '/matches', '/emails', '/outbox', '/gmail', '/profile', '/settings'].some(p => pathname.startsWith(p))) {
+    if (['/dashboard', '/onboarding', '/discover', '/programmes', '/matches', '/emails', '/outbox', '/gmail', '/profile', '/settings'].some(p => pathname.startsWith(p))) {
       return 'student';
     }
     return 'public';
@@ -70,7 +70,7 @@ export function detectSurfaceFromLocation(pathname: string, hostname: string, se
 
   // Path Prefix Detection
   if (pathname.startsWith('/admin')) return 'admin';
-  if (['/dashboard', '/discover', '/programmes', '/matches', '/emails', '/outbox', '/gmail', '/profile', '/settings'].some(p => pathname.startsWith(p))) {
+  if (['/dashboard', '/onboarding', '/discover', '/programmes', '/matches', '/emails', '/outbox', '/gmail', '/profile', '/settings'].some(p => pathname.startsWith(p))) {
     return 'student';
   }
 

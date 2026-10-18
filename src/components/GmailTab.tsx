@@ -17,6 +17,18 @@ interface GmailTabProps {
   onNotify: (msg: string) => void;
 }
 
+const CALLBACK_MESSAGES: Record<string, string> = {
+  connected: 'Gmail connected. Send a test email to finish setup.',
+  denied: 'Gmail was not connected because access was declined on Google.',
+  missing_scope: 'Gmail was not connected. Please tick the "Send email on your behalf" box on the Google screen.',
+  unverified_email: 'That Google account has no verified email address.',
+  expired: 'The Google sign-in took too long or was already used. Please try again.',
+  login_required: 'Please sign in to AdmitPath first, then connect Gmail.',
+  not_configured: 'Gmail connection is not set up on the server yet.',
+  no_refresh_token: 'Google did not grant offline access. Please try connecting again.',
+  error: 'Something went wrong while connecting Gmail. Please try again.',
+};
+
 export default function GmailTab({ onNotify }: GmailTabProps) {
   const [gmailStatus, setGmailStatus] = useState<any>({
     connected: false,
@@ -28,7 +40,6 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
-  const [customConnectEmail, setCustomConnectEmail] = useState('');
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
   const fetchStatus = async () => {
@@ -45,29 +56,34 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
 
   useEffect(() => {
     fetchStatus();
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('gmail');
+    if (result) {
+      onNotify(CALLBACK_MESSAGES[result] || CALLBACK_MESSAGES.error);
+      params.delete('gmail');
+      const query = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
+    }
   }, []);
 
-  const handleConnect = async (emailToUse?: string) => {
+  const handleConnect = async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/gmail/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailToUse || customConnectEmail || 'alex.scholar@gmail.com' })
+        body: '{}'
       });
       const data = await res.json();
-      if (res.ok) {
-        onNotify(data.message || 'Gmail account connected successfully.');
-        setIsConnectModalOpen(false);
-        fetchStatus();
-      } else {
-        onNotify('Error: ' + data.error);
+      if (res.ok && data.url) {
+        window.location.assign(data.url);
+        return;
       }
+      onNotify('Error: ' + (data.error || 'Could not start the Google sign-in.'));
     } catch (err: any) {
       onNotify('Connection error: ' + err.message);
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   const handleDisconnect = async () => {
@@ -76,7 +92,7 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
     }
     setIsLoading(true);
     try {
-      const res = await fetch('/api/gmail/disconnect', { method: 'POST' });
+      const res = await fetch('/api/gmail/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await res.json();
       if (res.ok) {
         onNotify(data.message || 'Gmail account disconnected.');
@@ -92,7 +108,7 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
   const handleSendTestEmail = async () => {
     setIsSendingTest(true);
     try {
-      const res = await fetch('/api/gmail/test', { method: 'POST' });
+      const res = await fetch('/api/gmail/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await res.json();
       if (res.ok) {
         onNotify(data.message);
@@ -140,13 +156,17 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
                     ? 'bg-emerald-100 text-emerald-800'
                     : 'bg-rose-100 text-rose-800'
                 }`}>
-                  {gmailStatus.connected ? 'Authorized & Active' : 'Disconnected'}
+                  {gmailStatus.status_label || (gmailStatus.connected ? 'Authorized & Active' : 'Disconnected')}
                 </span>
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
                 {gmailStatus.connected
-                  ? 'All approved university inquiries will be sent using this verified mailbox.'
-                  : 'You must connect your Gmail account before Start Sending can dispatch applications.'}
+                  ? gmailStatus.test_passed
+                    ? 'All approved university inquiries will be sent using this verified mailbox.'
+                    : 'Send a test email to yourself before any university emails can go out.'
+                  : gmailStatus.needs_reconnect
+                    ? 'Google access expired or was revoked. Reconnect to keep sending.'
+                    : 'You must connect your Gmail account before Start Sending can dispatch applications.'}
               </div>
             </div>
           </div>
@@ -160,7 +180,7 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
                   className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Send className="h-3.5 w-3.5 text-slate-500" />
-                  {isSendingTest ? 'Verifying...' : 'Send Test Ping'}
+                  {isSendingTest ? 'Sending...' : 'Send Test Email'}
                 </button>
                 <button
                   onClick={handleDisconnect}
@@ -178,7 +198,7 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
                 className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-2xs transition flex items-center gap-1.5"
               >
                 <Mail className="h-4 w-4" />
-                Connect Gmail Account
+                {gmailStatus.needs_reconnect ? 'Reconnect Gmail' : 'Connect Gmail Account'}
               </button>
             )}
           </div>
@@ -189,7 +209,7 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
           <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
             <span className="text-slate-500 block">Least-Privilege Scopes</span>
             <span className="font-semibold text-slate-800 block mt-0.5 font-mono text-[11px] truncate" title={gmailStatus.scopes}>
-              gmail.send, userinfo.email
+              gmail.send, email
             </span>
           </div>
 
@@ -253,25 +273,16 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <h3 className="text-base font-bold text-slate-900">Authorize Google Account</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Select or enter your Gmail address to initiate OAuth 2.0 connection.
+              You will be sent to Google to choose your account and approve access.
             </p>
 
             <div className="mt-4 space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Student Gmail Address</label>
-                <input
-                  type="email"
-                  value={customConnectEmail}
-                  onChange={(e) => setCustomConnectEmail(e.target.value)}
-                  placeholder="alex.scholar@gmail.com"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-600"
-                />
-              </div>
-
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-[11px] text-slate-600 space-y-1">
-                <div className="font-semibold text-slate-800">OAuth Permissions Requested:</div>
-                <div>• https://www.googleapis.com/auth/gmail.send</div>
-                <div>• https://www.googleapis.com/auth/userinfo.email</div>
+                <div className="font-semibold text-slate-800">What AdmitPath asks for:</div>
+                <div>• <strong>Send email on your behalf</strong> (gmail.send): needed to send the university emails you approve, from your own address.</div>
+                <div>• <strong>Your email address</strong>: so AdmitPath knows which Gmail account is connected.</div>
+                <div>AdmitPath cannot read, delete or search your inbox.</div>
+                <div>If Google shows "Google hasn't verified this app", choose Advanced, then continue. This appears while the app is in testing.</div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -286,7 +297,7 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
                   disabled={isLoading}
                   className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs"
                 >
-                  {isLoading ? 'Authorizing...' : 'Authorize Gmail'}
+                  {isLoading ? 'Opening Google...' : 'Continue to Google'}
                 </button>
               </div>
             </div>

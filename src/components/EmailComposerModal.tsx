@@ -116,11 +116,6 @@ export default function EmailComposerModal({
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      } else {
-        headers["x-impersonate-role"] = "student";
-      }
 
       // Check if university has a contact in contacts list
       const matchedContact =
@@ -204,11 +199,6 @@ export default function EmailComposerModal({
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      } else {
-        headers["x-impersonate-role"] = "student";
-      }
 
       const payload = {
         program_id: program.id,

@@ -2,6 +2,77 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.7.0] - 2026-10-18
+
+### Live crawler with 30-day search cache
+
+- New `crawler/` (Node 22, no dependencies) run by `.github/workflows/crawler.yml` (on dispatch, hourly, or by hand): universities from Wikidata, then each university's own website (robots.txt, rate limits, own user agent) for programme titles and public admissions emails. Results go to D1 through the D1 REST API.
+- `search_cache` table (migration `0007`): each country + field search is stored with a JSON snapshot; served from D1 for 30 days, then re-crawled on the next request. Empty results retry after 7 days.
+- `POST /api/discovery/jobs` now serves a fresh cached search or queues a crawl (10 new searches per student per day) and can start the GitHub workflow right away (`GITHUB_DISPATCH_TOKEN`, `GITHUB_REPO`). `GET /api/discovery/results` returns the search status.
+- Discover page: shows "collecting" status and refreshes every 20 seconds until results arrive; shows the real last crawl time.
+- Universities without a ranking now sort after ranked ones.
+- Tests: `tests/crawler/crawler.test.ts` (20) and updated `tests/worker/catalog.test.ts`; 117 tests passing (`npm run test:worker`).
+- Docs: live crawler section in `docs/crawler.md`.
+
+## [1.6.0] - 2026-10-18
+
+### Discover and catalogue in the Worker
+
+- Ported `/api/universities`, `/api/programs`, their detail routes, `/api/contacts` and all `/api/discovery/*` routes (`docs/catalog.md`). Fixes "Discovery error: Not found."
+- Migration `0006_seed_catalog.sql` loads the curated catalogue (30 universities, 25 programs, 7 contacts) into D1, with `last_verified` left empty. Generator: `scripts/gen-catalog-seed.ts`.
+- Removed fabrication: the old discovery created a fake "National University of <country>" with fake programs and a fake admissions email when a country had no data. Empty searches now say so.
+- Discover page: removed the scripted progress steps and fallback numbers; shows the server's real counts and message.
+- Tests: `tests/worker/catalog.test.ts` (10), total Worker tests 92 passing.
+
+## [1.5.0] - 2026-10-18
+
+### Google sign-up and sign-in, onboarding profile
+
+- "Continue with Google" on the login page (`openid email profile`, PKCE, state in D1 plus an HttpOnly cookie against login CSRF). First sign-in creates a student; existing accounts with the same verified email are linked.
+- New students go to a 4-step onboarding form (`/onboarding`) before the dashboard. The same form edits the profile later from the Profile page.
+- Profile fields chosen for matching and email writing (`docs/profile.md`), with server validation and per-field errors.
+- `/api/profile` GET and PUT in the Worker; `/api/auth/me` returns `onboarding_complete`.
+- Profile page: fake placeholder data ("Alex Vance", GPA 3.86, etc.) removed; shows "Not set" and an "Edit profile" button. The old "read-only, ask your administrator" banner is gone.
+- Migration `0005_google_signin_profile.sql`: `users.google_sub`, `login_states`, new student profile columns.
+- Fix: "Continue with Google" always opens Google, even when already signed in, and replaces the old session. Fix: the Google button no longer keeps spinning after pressing Back.
+- Fix: OAuth redirect URIs come from `APP_ORIGIN` instead of the request host, which `wrangler dev` rewrites to `http://adminpath.com` (caused `redirect_uri_mismatch`). Dev port pinned to 8787.
+- Tests: `tests/worker/signup.test.ts` (27), total Worker tests 82 passing.
+
+## [1.4.0] - 2026-10-18
+
+### Real Gmail connect (Worker) and cookie login in the frontend
+
+- Gmail: real Google OAuth (`gmail.send` + `openid email`, PKCE, hashed single-use state), encrypted refresh and access tokens (AES-256-GCM, `GMAIL_TOKEN_KEY`), token refresh, reconnect on revoked access, disconnect with revoke, test email to the student's own address through the Gmail API. The old demo connect stored fake tokens; migration `0004_gmail_oauth.sql` removes them.
+- `gmail.readonly` dropped on purpose (restricted scope needs a paid assessment).
+- Frontend: login uses the HttpOnly cookie; `localStorage` tokens, Bearer headers and every `x-impersonate-role` header removed. `src/csrf.ts` adds `X-CSRF-Token` to same-origin POST/PUT/PATCH/DELETE.
+- Gmail page: real redirect to Google, result messages, "Reconnect Gmail", test email gate text, plain explanation of the permission.
+- Worker: CSRF check is now global for every route.
+- `wrangler.toml`: `GOOGLE_CLIENT_ID` var. `package.json`: `gen:gmail-key`.
+- Tests: `tests/worker/gmail.test.ts` (26), total Worker tests 55 passing.
+- Docs: Worker section and Google Cloud setup in `docs/gmail-oauth.md`.
+
+## [1.3.0] - 2026-10-18
+
+### Cloudflare Worker migration, stage 1 (auth)
+
+- New Worker backend in `worker/` (no runtime dependencies): router, D1 and R2 types, `/api/health`, `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`.
+- Security: HttpOnly session cookie with hashed token storage, per-session CSRF token, same-origin check, email and IP lockout, constant-time password checks. The `x-impersonate-role` header and Bearer tokens are not accepted.
+- `migrations/0003_auth_hardening.sql`: session CSRF, IP and user-agent columns, lookup indexes; clears old raw-token sessions.
+- `wrangler.toml`: `main` is now `worker/index.ts`, `[assets]` serves `dist/`, auth settings added to `[vars]`.
+- `package.json`: `test:worker`, `typecheck:worker`, `worker:dev`, `worker:deploy`, `db:migrate:local`, `db:migrate:remote`, `create-user`; Wrangler added as a dev dependency.
+- `scripts/create-user.ts` replaces seeded demo passwords for the Worker.
+- Tests: `tests/worker/auth.test.ts` (29 passing).
+- Docs: `docs/worker-migration.md`, Worker section in `docs/auth.md`, updated `docs/deployment.md`.
+
+## [1.2.1] - 2026-10-18
+
+### Deployment config cleanup
+
+- `wrangler.toml` is now flat: `routes` moved to the top level and `[env.production]` removed, so vars, D1 and R2 bindings and routes all apply with a plain `wrangler deploy`.
+- Removed `.env.production` (it duplicated `wrangler.toml` and nothing read it).
+- `server.ts` no longer falls back to built-in values for `DATA_ENCRYPTION_KEY` and `STRIPE_WEBHOOK_SECRET` when `NODE_ENV=production`; it fails at startup instead. Dev fallbacks are unchanged.
+- Added `docs/deployment.md`.
+
 ## [1.2.0] - 2026-10-14
 
 ### AdminPath Light Editorial Theme Migration

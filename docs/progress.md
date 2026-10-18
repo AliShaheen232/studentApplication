@@ -32,3 +32,10 @@
 - [x] **Phase 10: AdminPath Light Editorial Theme Overhaul**
   - Status: Completed.
   - Implemented: High-contrast light aesthetic (`#f4f6f8` background, `#ffffff` cards), `Newsreader` editorial serif typography, green-outlined active sidebar pills, Daily analytical dashboard with live metrics, lead source comparison table, and dual funnel charts. Full documentation in `docs/theme-migration.md`.
+- [ ] **Phase 11: Cloudflare Worker Migration** (`docs/worker-migration.md`)
+  - Stage 1 done: Worker skeleton, D1 types, auth with cookie sessions, CSRF and lockout; 29 tests passing.
+  - Stage 2 done: frontend uses cookie login; impersonation header removed.
+  - Stage 5a done: real Gmail OAuth connect, disconnect and test email; 55 Worker tests passing.
+  - Google sign-up/sign-in and 4-step onboarding profile done; 80 Worker tests passing.
+  - Discover and catalogue in the Worker; live crawler on GitHub Actions with a 30-day search cache; 117 tests passing.
+  - Next: documents on R2, the matcher on the new profile fields, then the outbox that sends university emails.

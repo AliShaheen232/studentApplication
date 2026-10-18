@@ -28,10 +28,21 @@ const __dirname = path.dirname(__filename);
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const DB_FILE = process.env.DB_PATH || path.join(__dirname, "admitpath.db");
-const DATA_ENCRYPTION_KEY =
-  process.env.DATA_ENCRYPTION_KEY || "admitpath-32-byte-encryption-token-demo";
-const WEBHOOK_SECRET =
-  process.env.STRIPE_WEBHOOK_SECRET || "whsec_demo_admitpath_secret_2026";
+const IS_PROD = process.env.NODE_ENV === "production";
+function requireSecret(name: string, devFallback: string): string {
+  const value = process.env[name];
+  if (value) return value;
+  if (IS_PROD) throw new Error(`Missing required secret: ${name}`);
+  return devFallback;
+}
+const DATA_ENCRYPTION_KEY = requireSecret(
+  "DATA_ENCRYPTION_KEY",
+  "admitpath-32-byte-encryption-token-demo",
+);
+const WEBHOOK_SECRET = requireSecret(
+  "STRIPE_WEBHOOK_SECRET",
+  "whsec_demo_admitpath_secret_2026",
+);
 
 // Initialize SQLite with WAL mode
 const db = new DatabaseSync(DB_FILE);
