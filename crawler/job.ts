@@ -39,7 +39,13 @@ function hash(s: string, len = 16): string {
   return createHash("sha1").update(s).digest("hex").slice(0, len);
 }
 
-export async function crawlUniversity(fetcher: PoliteFetcher, inst: Institution, matcher: FieldMatcher, maxPages: number): Promise<UniversityResult> {
+export async function crawlUniversity(
+  fetcher: PoliteFetcher,
+  inst: Institution,
+  matcher: FieldMatcher,
+  maxPages: number,
+  maxPrograms = 60,
+): Promise<UniversityResult> {
   const queue: { url: string; score: number; depth: number }[] = [{ url: inst.website, score: 100, depth: 0 }];
   const seen = new Set<string>([inst.website]);
   const programs = new Map<string, ProgramCandidate>();
@@ -72,10 +78,10 @@ export async function crawlUniversity(fetcher: PoliteFetcher, inst: Institution,
   }
 
   const sortedContacts = [...contacts.values()].sort((a, b) => (a.type === b.type ? 0 : a.type === "role" ? -1 : 1)).slice(0, 5);
-  return { institution: inst, programs: [...programs.values()].slice(0, 60), contacts: sortedContacts, pages };
+  return { institution: inst, programs: [...programs.values()].slice(0, maxPrograms), contacts: sortedContacts, pages };
 }
 
-async function pool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+export async function pool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let i = 0;
   const workers = Array.from({ length: Math.min(size, items.length) }, async () => {

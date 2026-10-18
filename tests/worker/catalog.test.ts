@@ -101,6 +101,34 @@ describe("catalog and discovery", () => {
     assert.equal((await student.request("POST", "/api/discovery/jobs", { body: { country_code: "DE", field: "Education" } })).status, 429);
   });
 
+  test("imported countries answer instantly from the database with coverage", async () => {
+    raw.prepare("INSERT INTO crawl_countries (country_code, country, institutions_total, imported_at) VALUES ('DE', 'Germany', 3, '2026-10-01 00:00:00.000')").run();
+    raw.prepare(`INSERT INTO institution_queue (domain, university_id, name, country_code, website, status, last_crawled_at, programs_found)
+      VALUES ('tum.de', 'univ_tum', 'TUM', 'DE', 'https://www.tum.de/', 'done', '2026-10-17 09:00:00.000', 3),
+             ('x.de', 'univ_x', 'X', 'DE', 'https://x.de/', 'pending', NULL, 0)`).run();
+    const res = await student.request("POST", "/api/discovery/jobs", { body: { country_code: "DE", field: "Computer Science" } });
+    assert.equal(res.data.status, "ready");
+    assert.ok(res.data.programmes_extracted > 0);
+    assert.match(res.data.message, /1 of 3 universities checked/);
+    assert.equal((raw.prepare("SELECT COUNT(*) AS n FROM search_cache").get() as { n: number }).n, 0);
+    const results = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science");
+    assert.equal(results.data.coverage.institutions_total, 3);
+    assert.equal(results.data.coverage.institutions_checked, 1);
+    assert.equal(results.data.search, null);
+    assert.equal(results.data.stats.lastUpdated, "2026-10-17 09:00:00.000");
+    const list = await new Client(env).request("GET", "/api/discovery/coverage");
+    assert.deepEqual(list.data.map((c: { country_code: string }) => c.country_code), ["DE"]);
+  });
+
+  test("programmes removed from a university website are hidden", async () => {
+    const before = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science");
+    const victim = before.data.programs[0].id;
+    raw.prepare("UPDATE programs SET removed_at = '2026-10-01 00:00:00.000' WHERE id = ?").run(victim);
+    const after = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science");
+    assert.equal(after.data.programs.length, before.data.programs.length - 1);
+    assert.ok(!after.data.programs.some((p: { id: string }) => p.id === victim));
+  });
+
   test("unknown countries are rejected", async () => {
     assert.equal((await student.request("POST", "/api/discovery/jobs", { body: { country: "Atlantis", field: "Law" } })).status, 400);
   });

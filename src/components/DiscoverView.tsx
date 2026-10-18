@@ -101,6 +101,8 @@ export default function DiscoverView({
     last_error: string | null;
   } | null>(null);
 
+  const [coverage, setCoverage] = useState<{ institutions_total: number; institutions_checked: number } | null>(null);
+
   // Raw Results & Dynamic Filter
   const [programs, setPrograms] = useState<DiscoveredProgram[]>([]);
   const [selectedStudyLevel, setSelectedStudyLevel] = useState<string>('all');
@@ -138,6 +140,7 @@ export default function DiscoverView({
         const data = await res.json();
         setPrograms(data.programs || []);
         setSearch(data.search || null);
+        setCoverage(data.coverage || null);
         if (data.stats) {
           setJobStats({
             ...data.stats,
@@ -549,6 +552,12 @@ export default function DiscoverView({
               <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
               Distinct Programmes: <strong>{jobStats.programmesExtracted}</strong>
             </span>
+            {coverage && (
+              <span className="flex items-center gap-1.5 font-medium text-slate-800">
+                <Search className="h-3.5 w-3.5 text-slate-500" />
+                Checked: <strong>{coverage.institutions_checked}</strong> of {coverage.institutions_total} universities in {activeCountry.name}
+              </span>
+            )}
             <span className="flex items-center gap-1.5 text-slate-500">
               <Clock className="h-3.5 w-3.5" />
               Last crawled: {jobStats.lastUpdated}

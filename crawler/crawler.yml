@@ -1,0 +1,52 @@
+name: Discovery crawler
+
+on:
+  repository_dispatch:
+    types: [crawl]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+concurrency:
+  group: discovery-crawler
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Crawl searches queued by students
+        run: node --experimental-strip-types --no-warnings crawler/run.ts
+        env:
+          CRAWL_TIME_BUDGET_MIN: "8"
+      - name: Build and refresh the catalogue of all institutions
+        run: node --experimental-strip-types --no-warnings crawler/bulk-run.ts
+        env:
+          BULK_TIME_BUDGET_MIN: "40"
+          D1_WRITE_BUDGET_PER_DAY: "80000"
+      - name: Upload country snapshots to R2
+        if: always()
+        run: |
+          shopt -s nullglob
+          for f in crawler/output/snapshots/*.json.gz; do
+            npx --yes wrangler@4 r2 object put "admitpath-catalog/snapshots/$(basename "$f")" --file "$f" --content-type application/gzip --remote
+          done
+      - name: Keep the JSON results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: crawl-results-${{ github.run_id }}
+          path: crawler/output/**/*
+          if-no-files-found: ignore
+          retention-days: 14

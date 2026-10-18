@@ -89,6 +89,12 @@ const CASED_PATTERNS: [Level, RegExp, string][] = [
   ["Bachelor", /(^|[^\p{L}])(B\.\s?A\.|BA|B\.\s?S\.|BS)([^\p{L}]|$)/u, "B.A."],
 ];
 
+const INTL_PATTERNS: [Level, RegExp, string][] = [
+  ["PhD", /(博士|박사)|(^|[^\p{L}])(аспирантур|doktora)/iu, "PhD"],
+  ["Master", /(硕士|碩士|修士|석사)|(^|[^\p{L}])(магистр|yüksek lisans)/iu, "Master"],
+  ["Bachelor", /(学士|學士|本科|학사)|(^|[^\p{L}])(бакалавр|lisans([^\p{L}]|$))/iu, "Bachelor"],
+];
+
 export function detectLevel(text: string): { level: Level; degree: string } | null {
   for (const [level, re] of DEGREE_PATTERNS) {
     const m = re.exec(text);
@@ -98,7 +104,17 @@ export function detectLevel(text: string): { level: Level; degree: string } | nu
     const m = re.exec(text);
     if (m) return { level, degree: normalizeDegree(m[2], level) };
   }
+  for (const [level, re, degree] of INTL_PATTERNS) {
+    if (re.test(text)) return { level, degree };
+  }
   return null;
+}
+
+const GENERIC_WORDS = /(^|[^\p{L}])(master'?s?|masters|bachelor'?s?|bachelors|ph\.?\s?d\.?|doctoral|doctorate|doctor|programmes?|programs?|degrees?|study|studies|courses?|of|science|sciences|arts|in|and|the|our|all|overview|international|graduate|undergraduate|postgraduate|m\.?\s?sc\.?|b\.?\s?sc\.?|m\.?\s?a\.?|b\.?\s?a\.?|m\.?\s?eng\.?|b\.?\s?eng\.?|studiengänge|studiengang|studium|research|taught|full-time|part-time|online)(?=[^\p{L}]|$)/giu;
+
+export function isGenericTitle(text: string): boolean {
+  const rest = text.replace(GENERIC_WORDS, " ").replace(/[^\p{L}]+/gu, "");
+  return rest.length < 3;
 }
 
 function normalizeDegree(raw: string, level: Level): string {
@@ -155,7 +171,7 @@ export function extractPrograms(html: string, pageUrl: string, matcher: FieldMat
   const add = (rawText: string, url: string, allowContext: boolean) => {
     const language = languageHint(rawText);
     const text = tidyName(rawText.replace(LANGUAGE_PHRASE, " "));
-    if (!plausibleTitle(text) || !matcher.matches(text)) return;
+    if (!plausibleTitle(text) || !matcher.matches(text) || isGenericTitle(text)) return;
     let lvl = detectLevel(text);
     if (!lvl && allowContext && ctxLevel && text.split(/\s+/).length <= 8) lvl = { level: ctxLevel, degree: ctxLevel };
     if (!lvl) return;
@@ -176,6 +192,7 @@ export function extractPrograms(html: string, pageUrl: string, matcher: FieldMat
   return [...found.values()];
 }
 
+const STUDY_WORDS_INTL = /(专业|招生|研究生|本科|学院|программ|поступ|абитуриент|образовател|入試|大学院|研究科|学部|입학|학과|대학원|bölüm|lisansüstü|aday)/iu;
 const STUDY_WORDS = /(stud(y|ies|ium|ieren|iengang|iengaenge|iengänge|ienangebot|ieninteressierte)|program(me)?s?|courses?|course-finder|degrees?|masters?|bachelors?|undergraduate|postgraduate|graduate|prospective|admissions?|formations?|etudes|études|estudios|grados|titulaciones|opleidingen|studeren|utbildning|koulutus|corsi|offerta-formativa|international)/i;
 const SKIP_LINK = /(login|logout|news|event|calendar|press|presse|jobs|karriere|career|alumni|shop|donate|spenden|\.pdf$|\.docx?$|\.jpe?g$|\.png$|\.zip$|mailto:|\/search\b|\?q=|facebook|twitter|instagram|linkedin|youtube|tiktok)/i;
 
@@ -191,7 +208,7 @@ export function scoreLink(a: Anchor, siteDomain: string, matcher: FieldMatcher):
   const hay = `${decodeURIComponent(url.pathname)} ${a.text}`;
   if (SKIP_LINK.test(hay) || SKIP_LINK.test(a.href)) return 0;
   let score = 0;
-  if (STUDY_WORDS.test(hay)) score += 2;
+  if (STUDY_WORDS.test(hay) || STUDY_WORDS_INTL.test(hay)) score += 2;
   if (matcher.matches(hay)) score += 3;
   if (detectLevel(a.text)) score += 1;
   if (/\/(en|en-gb|en-us|english)(\/|$)/i.test(url.pathname)) score += 1;

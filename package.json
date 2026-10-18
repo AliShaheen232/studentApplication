@@ -13,6 +13,7 @@
     "test:python": "python3 -m unittest discover tests",
     "test:worker": "node --experimental-strip-types --no-warnings --test tests/worker/*.test.ts tests/crawler/*.test.ts",
     "crawl": "node --experimental-strip-types --no-warnings crawler/run.ts",
+    "crawl:bulk": "node --experimental-strip-types --no-warnings crawler/bulk-run.ts",
     "typecheck:worker": "tsc -p tsconfig.worker.json",
     "worker:dev": "vite build && wrangler dev",
     "worker:deploy": "vite build && wrangler deploy",

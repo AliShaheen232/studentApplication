@@ -32,6 +32,28 @@ async function searchStatus(env: Env, countryCode: string, field: string): Promi
   return { ...row, stale: !!row.expires_at && row.expires_at <= sqlTimestamp() };
 }
 
+export interface Coverage {
+  country_code: string;
+  institutions_total: number;
+  institutions_checked: number;
+  institutions_with_programs: number;
+  last_update: string | null;
+}
+
+async function coverage(env: Env, countryCode: string): Promise<Coverage | null> {
+  const row = await env.adminpath_prod_d1
+    .prepare(
+      `SELECT c.country_code, c.institutions_total,
+         (SELECT COUNT(*) FROM institution_queue q WHERE q.country_code = c.country_code AND q.last_crawled_at IS NOT NULL) AS institutions_checked,
+         (SELECT COUNT(*) FROM institution_queue q WHERE q.country_code = c.country_code AND q.programs_found > 0) AS institutions_with_programs,
+         (SELECT MAX(last_crawled_at) FROM institution_queue q WHERE q.country_code = c.country_code) AS last_update
+       FROM crawl_countries c WHERE c.country_code = ? AND c.imported_at IS NOT NULL`,
+    )
+    .bind(countryCode)
+    .first<Coverage>();
+  return row ?? null;
+}
+
 async function dispatchCrawler(env: Env): Promise<void> {
   const token = typeof env.GITHUB_DISPATCH_TOKEN === "string" ? env.GITHUB_DISPATCH_TOKEN : "";
   const repo = typeof env.GITHUB_REPO === "string" ? env.GITHUB_REPO : "";
@@ -80,7 +102,7 @@ interface Filters {
 }
 
 function programQuery(f: Filters): { sql: string; params: unknown[] } {
-  const where: string[] = [];
+  const where: string[] = ["p.removed_at IS NULL"];
   const params: unknown[] = [];
   if (f.country) {
     where.push("(LOWER(u.country) = LOWER(?) OR LOWER(u.country_code) = LOWER(?))");
@@ -102,7 +124,7 @@ function programQuery(f: Filters): { sql: string; params: unknown[] } {
     where.push("(p.tuition IS NULL OR p.tuition <= ?)");
     params.push(f.maxTuition);
   }
-  const sql = `${PROGRAM_SELECT}${where.length ? ` WHERE ${where.join(" AND ")}` : ""} ORDER BY (u.ranking IS NULL), u.ranking ASC, p.name ASC LIMIT 500`;
+  const sql = `${PROGRAM_SELECT}${where.length ? ` WHERE ${where.join(" AND ")}` : ""} ORDER BY (u.ranking IS NULL), u.ranking ASC, p.name ASC LIMIT 1000`;
   return { sql, params };
 }
 
@@ -211,17 +233,19 @@ export function registerCatalogRoutes(router: Router): void {
     const programs = level ? results.filter((p) => String(p.level || "").toLowerCase() === level) : results;
     const institutions = new Set(results.map((p) => p.university_id)).size;
     const search = country && field ? await searchStatus(c.env, country.code, field) : null;
+    const cover = country ? await coverage(c.env, country.code) : null;
 
     return json({
       programs,
       total_count: programs.length,
       available_study_levels: Object.entries(counts).map(([lvl, count]) => ({ level: lvl, label: LEVEL_LABELS[lvl] || lvl, count })),
-      search,
+      search: cover ? null : search,
+      coverage: cover,
       stats: {
         institutionsDiscovered: institutions,
         programmesExtracted: results.length,
-        pagesInspected: search?.pages_inspected ?? 0,
-        lastUpdated: search?.fetched_at ?? null,
+        pagesInspected: cover ? 0 : (search?.pages_inspected ?? 0),
+        lastUpdated: cover?.last_update ?? search?.fetched_at ?? null,
       },
     });
   });
@@ -238,6 +262,25 @@ export function registerCatalogRoutes(router: Router): void {
     const db = c.env.adminpath_prod_d1;
     const key = searchKey(country.code, field);
     const now = sqlTimestamp();
+    const cover = await coverage(c.env, country.code);
+    if (cover) {
+      const { sql, params } = programQuery({ country: country.code, field });
+      const { results } = await db.prepare(sql).bind(...params).all<Record<string, unknown>>();
+      const institutions = new Set(results.map((p) => p.university_id)).size;
+      const done = cover.institutions_checked >= cover.institutions_total;
+      return json({
+        success: true,
+        job_id: null,
+        search_key: key,
+        status: "ready",
+        institutions_discovered: institutions,
+        programmes_extracted: results.length,
+        coverage: cover,
+        message: done
+          ? `${results.length} ${field} programmes at ${institutions} universities in ${country.name}.`
+          : `${results.length} ${field} programmes at ${institutions} universities in ${country.name} so far. ${cover.institutions_checked} of ${cover.institutions_total} universities checked; more are added every hour.`,
+      });
+    }
     const existing = await searchStatus(c.env, country.code, field);
 
     let status: string;
@@ -306,6 +349,17 @@ export function registerCatalogRoutes(router: Router): void {
       programmes_extracted: existing?.programs_count ?? 0,
       message,
     });
+  });
+
+  router.get("/api/discovery/coverage", async (c) => {
+    const { results } = await c.env.adminpath_prod_d1
+      .prepare(
+        `SELECT c.country_code, c.country, c.institutions_total,
+           (SELECT COUNT(*) FROM institution_queue q WHERE q.country_code = c.country_code AND q.last_crawled_at IS NOT NULL) AS institutions_checked
+         FROM crawl_countries c WHERE c.imported_at IS NOT NULL ORDER BY c.country`,
+      )
+      .all();
+    return json(results);
   });
 
   router.get("/api/discovery/jobs", requireAuth, async (c) => {

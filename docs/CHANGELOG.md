@@ -2,6 +2,18 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.8.0] - 2026-10-18
+
+### Bulk catalogue of all institutions in the target countries
+
+- `crawler/bulk.ts` and `crawler/bulk-run.ts`: imports every institution in all of Europe plus RU, TR, CN, MY, SG, AU, CA, US, KR, ZA, JP, AE and PK from Wikidata, then crawls each university for all programmes (25 pages, up to 300 programmes) and tags subjects automatically.
+- Multilingual subjects and degree levels: Chinese, Russian, Japanese, Korean and Turkish added; generic headings like "Master's programmes" are ignored.
+- Only new or changed rows are written; programmes that disappear are marked `removed_at`; outages never wipe data. Refresh every 30 to 33 days per institution. Daily D1 write budget (80,000) tracked in `crawl_budget`.
+- Daily gzipped JSON snapshot per changed country, uploaded to the R2 bucket `admitpath-catalog` (no contacts in snapshots).
+- Discover answers imported countries instantly from D1 and shows "Checked: X of Y universities"; removed programmes are hidden; `GET /api/discovery/coverage`.
+- Migration `0008_bulk_catalogue.sql`. New workflow version in `crawler/crawler.yml` (copy to `.github/workflows/`).
+- Tests: `tests/crawler/bulk.test.ts` (9) plus Worker coverage tests; 128 tests passing.
+
 ## [1.7.0] - 2026-10-18
 
 ### Live crawler with 30-day search cache
