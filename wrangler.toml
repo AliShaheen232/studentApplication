@@ -35,6 +35,11 @@ bucket_name = "adminpath-student-documents"
 binding = "adminpath_student_documents"
 remote = true
 
+[[r2_buckets]]
+bucket_name = "admitpath-catalog"
+binding = "admitpath_catalog"
+remote = true
+
 # 4. Environment Variables
 [vars]
 HOST = "0.0.0.0"
