@@ -7,6 +7,7 @@ import { registerGmailRoutes } from "./routes/gmail.ts";
 import { registerGoogleLoginRoutes } from "./routes/googleLogin.ts";
 import { registerProfileRoutes } from "./routes/profile.ts";
 import { registerCatalogRoutes } from "./routes/catalog.ts";
+import { registerLiveRoutes } from "./routes/live.ts";
 
 export function buildRouter(): Router {
   const router = new Router();
@@ -28,6 +29,7 @@ export function buildRouter(): Router {
   registerGmailRoutes(router);
   registerProfileRoutes(router);
   registerCatalogRoutes(router);
+  registerLiveRoutes(router);
   return router;
 }
 

@@ -7,6 +7,7 @@ import type { Db, Statement } from "./d1.ts";
 import { anchors, extractEmails, extractPrograms, scoreLink, type ContactCandidate, type ProgramCandidate } from "./extract.ts";
 import type { PoliteFetcher } from "./fetcher.ts";
 import { fieldMatcher, type FieldMatcher } from "./fields.ts";
+import { addToSearch, searchableSubjects } from "./searchIndex.ts";
 import type { Institution } from "./wikidata.ts";
 
 export interface SearchJob {
@@ -153,6 +154,7 @@ export async function runSearch(db: Db, fetcher: PoliteFetcher, job: SearchJob, 
                   THEN programs.subject_category ELSE programs.subject_category || ', ' || excluded.subject_category END`,
         params: [id, uniId, p.name, p.level, p.degree, p.language, p.url, matcher.field, p.url, stamp],
       });
+      programStatements.push(...addToSearch({ id, universityId: uniId, countryCode: job.country_code, level: p.level }, searchableSubjects(matcher.field)));
       snapshot.push({
         id,
         university_id: uniId,

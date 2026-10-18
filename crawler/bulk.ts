@@ -8,6 +8,7 @@ import { isLimitError, type Db, type Statement } from "./d1.ts";
 import type { PoliteFetcher } from "./fetcher.ts";
 import { anyFieldMatcher, classifySubjects } from "./fields.ts";
 import { crawlUniversity, pool } from "./job.ts";
+import { addToSearch, removeFromSearch, searchableSubjects, UNRANKED } from "./searchIndex.ts";
 import type { Institution } from "./wikidata.ts";
 
 const DAY = 86400_000;
@@ -148,6 +149,32 @@ export interface QueueRow {
   website: string;
   students: number | null;
   attempts: number;
+  last_crawled_at?: string | null;
+  programs_found?: number | null;
+  tags?: string | null;
+}
+
+export type BulkMode = "tags" | "full";
+
+export function parseTags(raw: string | null | undefined): Record<string, string[]> {
+  try {
+    const v = raw ? JSON.parse(raw) : {};
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, string[]>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function tagsFrom(programs: { name: string; level: string }[]): Record<string, string[]> {
+  const out: Record<string, Set<string>> = {};
+  for (const p of programs) {
+    for (const subject of classifySubjects(p.name)) (out[subject] ??= new Set()).add(p.level);
+  }
+  return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [...v].sort()]));
+}
+
+export function rankFallback(students: number | null | undefined): number {
+  return UNRANKED + 900_000 - Math.min(Math.max(Number(students) || 0, 0), 899_999);
 }
 
 export async function claimInstitutions(db: Db, limit: number, now: number): Promise<QueueRow[]> {
@@ -155,13 +182,21 @@ export async function claimInstitutions(db: Db, limit: number, now: number): Pro
   await db.query("UPDATE institution_queue SET status = 'pending' WHERE status = 'running' AND claimed_at < ?", [
     sqlTimestamp(now - 2 * 3600_000),
   ]);
+  const cols = "domain, university_id, qid, name, country_code, website, students, attempts, last_crawled_at, programs_found, tags";
   const { results } = await db.query<QueueRow>(
-    `SELECT domain, university_id, qid, name, country_code, website, students, attempts FROM institution_queue
-     WHERE status = 'pending' OR (status IN ('done', 'failed') AND next_crawl_at <= ?)
-     ORDER BY (last_crawled_at IS NOT NULL), students IS NULL, students DESC, domain
-     LIMIT ?`,
-    [stamp, limit],
+    `SELECT ${cols} FROM institution_queue INDEXED BY idx_iq_pending WHERE status = 'pending' ORDER BY students DESC LIMIT ?`,
+    [limit],
   );
+  if (results.length < limit) {
+    for (const status of ["failed", "done"]) {
+      const { results: due } = await db.query<QueueRow>(
+        `SELECT ${cols} FROM institution_queue WHERE status = ? AND next_crawl_at <= ? ORDER BY next_crawl_at LIMIT ?`,
+        [status, stamp, limit - results.length],
+      );
+      results.push(...due);
+      if (results.length >= limit) break;
+    }
+  }
   if (!results.length) return [];
   await db.query(
     `UPDATE institution_queue SET status = 'running', claimed_at = ? WHERE domain IN (${results.map(() => "?").join(", ")})`,
@@ -197,7 +232,7 @@ export async function crawlInstitution(
   db: Db,
   fetcher: PoliteFetcher,
   row: QueueRow,
-  opts: { maxPages: number; maxPrograms: number; now: number },
+  opts: { maxPages: number; maxPrograms: number; now: number; mode?: BulkMode },
 ): Promise<InstitutionOutcome> {
   const stamp = sqlTimestamp(opts.now);
   const inst: Institution = { qid: row.qid ?? "", name: row.name, website: row.website, domain: row.domain, city: "", students: row.students };
@@ -211,8 +246,15 @@ export async function crawlInstitution(
   const statements: Statement[] = [];
   const outcome: InstitutionOutcome = { domain: row.domain, countryCode: row.country_code, pages: result.pages, found: result.programs.length, inserted: 0, updated: 0, removed: 0, writes: 0 };
 
+  const coverageUpdate = (programsFound: number): Statement => ({
+    sql: `UPDATE crawl_countries SET institutions_checked = COALESCE(institutions_checked, 0) + ?,
+            institutions_with_programs = MAX(0, COALESCE(institutions_with_programs, 0) + ?), last_update = ? WHERE country_code = ?`,
+    params: [row.last_crawled_at ? 0 : 1, (programsFound > 0 ? 1 : 0) - ((row.programs_found ?? 0) > 0 ? 1 : 0), stamp, row.country_code],
+  });
+
   if (result.pages === 0) {
     const attempts = row.attempts + 1;
+    statements.push(coverageUpdate(row.programs_found ?? 0));
     statements.push({
       sql: `UPDATE institution_queue SET status = 'failed', attempts = ?, last_crawled_at = ?, next_crawl_at = ?, pages = 0,
               last_error = 'Website could not be fetched (offline, blocked or robots.txt)' WHERE domain = ?`,
@@ -223,50 +265,79 @@ export async function crawlInstitution(
     return outcome;
   }
 
-  const { results: existing } = await db.query<ExistingProgram>(
-    `SELECT id, name, level, original_degree, language, program_url, subject_category, source_type, removed_at
-     FROM programs WHERE university_id = ?`,
-    [row.university_id],
-  );
-  const byId = new Map(existing.map((p) => [p.id, p]));
-  const seen = new Set<string>();
-
-  for (const p of result.programs) {
-    const id = programId(row.domain, p.level, p.name);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const subjects = classifySubjects(p.name).join(", ") || "Other";
-    const prev = byId.get(id);
-    if (!prev) {
+  let tags = parseTags(row.tags);
+  if ((opts.mode ?? "full") === "tags") {
+    const found = tagsFrom(result.programs);
+    const next: Record<string, string[]> = { ...tags };
+    for (const [subject, levels] of Object.entries(found)) {
+      const merged = [...new Set([...(tags[subject] ?? []), ...levels])].sort();
+      if (tags[subject] && merged.join(",") === [...tags[subject]].sort().join(",")) continue;
       statements.push({
-        sql: `INSERT INTO programs (id, university_id, name, level, original_degree, department, language, duration_months, tuition, deadline,
-                requirements, program_url, admissions_url, subject_category, application_mode, source_url, source_type, last_verified, removed_at)
-              VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, NULL, NULL, NULL, ?, NULL, ?, 'portal_and_email', ?, 'official_website', ?, NULL)`,
-        params: [id, row.university_id, p.name, p.level, p.degree, p.language, p.url, subjects, p.url, stamp],
+        sql: `INSERT INTO university_subjects (country_code, subject, university_id, rank_sort, levels)
+              SELECT ?, ?, id, COALESCE(ranking, ?), ? FROM universities WHERE id = ?
+              ON CONFLICT(country_code, subject, university_id) DO UPDATE SET levels = excluded.levels`,
+        params: [row.country_code, subject, rankFallback(row.students), merged.join(","), row.university_id],
       });
-      outcome.inserted++;
-    } else if (
-      prev.removed_at ||
-      prev.name !== p.name ||
-      prev.program_url !== p.url ||
-      (prev.language ?? null) !== (p.language ?? prev.language ?? null) ||
-      prev.subject_category !== subjects
-    ) {
-      statements.push({
-        sql: `UPDATE programs SET name = ?, program_url = ?, source_url = ?, language = COALESCE(?, language), subject_category = ?,
-                last_verified = ?, removed_at = NULL WHERE id = ?`,
-        params: [p.name, p.url, p.url, p.language, subjects, stamp, id],
-      });
-      outcome.updated++;
+      if (!tags[subject]) outcome.inserted++;
+      else outcome.updated++;
+      next[subject] = merged;
     }
-  }
+    tags = next;
+  } else {
+    const { results: existing } = await db.query<ExistingProgram>(
+      `SELECT id, name, level, original_degree, language, program_url, subject_category, source_type, removed_at
+       FROM programs WHERE university_id = ?`,
+      [row.university_id],
+    );
+    const byId = new Map(existing.map((p) => [p.id, p]));
+    const seen = new Set<string>();
 
-  if (result.programs.length > 0 && result.pages >= 2) {
-    const gone = existing.filter((p) => p.source_type === "official_website" && !p.removed_at && !seen.has(p.id));
-    for (const p of gone) {
-      statements.push({ sql: "UPDATE programs SET removed_at = ? WHERE id = ?", params: [stamp, p.id] });
+    for (const p of result.programs) {
+      const id = programId(row.domain, p.level, p.name);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const subjects = classifySubjects(p.name).join(", ") || "Other";
+      const prev = byId.get(id);
+      const key = { id, universityId: row.university_id, countryCode: row.country_code, level: p.level };
+      if (!prev) {
+        statements.push({
+          sql: `INSERT INTO programs (id, university_id, name, level, original_degree, department, language, duration_months, tuition, deadline,
+                  requirements, program_url, admissions_url, subject_category, application_mode, source_url, source_type, last_verified, removed_at)
+                VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, NULL, NULL, NULL, ?, NULL, ?, 'portal_and_email', ?, 'official_website', ?, NULL)`,
+          params: [id, row.university_id, p.name, p.level, p.degree, p.language, p.url, subjects, p.url, stamp],
+        });
+        statements.push(...addToSearch(key, searchableSubjects(subjects)));
+        outcome.inserted++;
+      } else if (
+        prev.removed_at ||
+        prev.name !== p.name ||
+        prev.program_url !== p.url ||
+        (prev.language ?? null) !== (p.language ?? prev.language ?? null) ||
+        prev.subject_category !== subjects
+      ) {
+        statements.push({
+          sql: `UPDATE programs SET name = ?, program_url = ?, source_url = ?, language = COALESCE(?, language), subject_category = ?,
+                  last_verified = ?, removed_at = NULL WHERE id = ?`,
+          params: [p.name, p.url, p.url, p.language, subjects, stamp, id],
+        });
+        if (prev.removed_at || prev.subject_category !== subjects) {
+          const before = prev.removed_at ? [] : searchableSubjects(prev.subject_category);
+          const after = searchableSubjects(subjects);
+          statements.push(...removeFromSearch(key, before.filter((s) => !after.includes(s))));
+          statements.push(...addToSearch(key, after.filter((s) => !before.includes(s))));
+        }
+        outcome.updated++;
+      }
     }
-    outcome.removed = gone.length;
+
+    if (result.programs.length > 0 && result.pages >= 2) {
+      const gone = existing.filter((p) => p.source_type === "official_website" && !p.removed_at && !seen.has(p.id));
+      for (const p of gone) {
+        statements.push({ sql: "UPDATE programs SET removed_at = ? WHERE id = ?", params: [stamp, p.id] });
+        statements.push(...removeFromSearch({ id: p.id, countryCode: row.country_code, level: p.level }, searchableSubjects(p.subject_category)));
+      }
+      outcome.removed = gone.length;
+    }
   }
 
   if (result.contacts.length) {
@@ -284,15 +355,17 @@ export async function crawlInstitution(
 
   const jitterDays = parseInt(hash(row.domain, 4), 16) % 4;
   statements.push({ sql: "UPDATE universities SET last_verified = ? WHERE id = ?", params: [stamp, row.university_id] });
+  statements.push(coverageUpdate(result.programs.length));
   statements.push({
     sql: `UPDATE institution_queue SET status = 'done', attempts = 0, last_crawled_at = ?, next_crawl_at = ?, programs_found = ?,
-            pages = ?, last_error = ? WHERE domain = ?`,
+            pages = ?, last_error = ?, tags = ? WHERE domain = ?`,
     params: [
       stamp,
       sqlTimestamp(opts.now + (REFRESH_DAYS + jitterDays) * DAY),
       result.programs.length,
       result.pages,
       result.programs.length ? null : "No programmes recognised on the pages visited",
+      Object.keys(tags).length ? JSON.stringify(tags) : row.tags ?? null,
       row.domain,
     ],
   });
@@ -364,6 +437,7 @@ export interface BulkOptions {
   concurrency: number;
   maxPages: number;
   maxPrograms: number;
+  mode?: BulkMode;
   outputDir: string;
   now?: () => number;
   institutions: (code: string, limit: number) => Promise<Institution[]>;
@@ -391,7 +465,7 @@ export async function runBulk(db: Db, fetcher: PoliteFetcher, opts: BulkOptions)
     let outcomes: InstitutionOutcome[];
     try {
       outcomes = await pool(batch, opts.concurrency, (row) =>
-        crawlInstitution(db, fetcher, row, { maxPages: opts.maxPages, maxPrograms: opts.maxPrograms, now: now() }),
+        crawlInstitution(db, fetcher, row, { maxPages: opts.maxPages, maxPrograms: opts.maxPrograms, now: now(), mode: opts.mode }),
       );
     } catch (e) {
       if (!isLimitError(e)) throw e;

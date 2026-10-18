@@ -25,13 +25,19 @@ ORDER BY DESC(?students)
 LIMIT ${Math.max(1, Math.min(limit * 3, 600))}`;
 }
 
+const SECOND_LEVEL = new Set(["ac", "edu", "co", "com", "org", "gov", "net"]);
+const domainCache = new Map<string, string>();
+
 export function registrableDomain(host: string): string {
+  const hit = domainCache.get(host);
+  if (hit !== undefined) return hit;
   const parts = host.toLowerCase().replace(/^www\d?\./, "").split(".");
-  const secondLevel = new Set(["ac", "edu", "co", "com", "org", "gov", "net"]);
-  if (parts.length >= 3 && secondLevel.has(parts[parts.length - 2]) && parts[parts.length - 1].length === 2) {
-    return parts.slice(-3).join(".");
-  }
-  return parts.slice(-2).join(".");
+  const out = parts.length >= 3 && SECOND_LEVEL.has(parts[parts.length - 2]) && parts[parts.length - 1].length === 2
+    ? parts.slice(-3).join(".")
+    : parts.slice(-2).join(".");
+  if (domainCache.size > 5000) domainCache.clear();
+  domainCache.set(host, out);
+  return out;
 }
 
 export function parseInstitutions(data: unknown, limit: number): Institution[] {

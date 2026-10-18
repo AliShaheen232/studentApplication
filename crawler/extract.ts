@@ -35,7 +35,7 @@ export function cleanText(html: string): string {
   return decodeEntities(html.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 }
 
-function stripNoise(html: string): string {
+export function stripNoise(html: string): string {
   return html
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<(script|style|noscript|svg|template)\b[\s\S]*?<\/\1>/gi, " ");
@@ -44,24 +44,39 @@ function stripNoise(html: string): string {
 export interface Anchor {
   href: string;
   text: string;
+  host?: string;
+  path?: string;
 }
 
 export function anchors(html: string, baseUrl: string): Anchor[] {
   const out: Anchor[] = [];
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return out;
+  }
   const re = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html))) {
     const href = /\bhref\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m[1]);
     const raw = href ? (href[2] ?? href[3] ?? href[4] ?? "") : "";
     if (!raw || /^(javascript:|tel:|#)/i.test(raw)) continue;
-    let abs: string;
+    const inner = m[2].includes("<") || m[2].includes("&") ? cleanText(m[2]) : m[2].replace(/\s+/g, " ").trim();
+    const title = inner ? "" : /\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "";
+    const text = inner || cleanText(title);
+    if (raw[0] === "/" && raw[1] !== "/" && /^[\w\-./~%]*$/.test(raw)) {
+      out.push({ href: base.origin + raw, text, host: base.hostname, path: raw });
+      continue;
+    }
+    let abs: URL;
     try {
-      abs = new URL(decodeEntities(raw), baseUrl).toString();
+      abs = new URL(raw.includes("&") ? decodeEntities(raw) : raw, base);
     } catch {
       continue;
     }
-    const title = /\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "";
-    out.push({ href: abs, text: cleanText(m[2]) || cleanText(title) });
+    if (abs.protocol !== "https:" && abs.protocol !== "http:") continue;
+    out.push({ href: abs.toString(), text, host: abs.hostname, path: abs.pathname });
   }
   return out;
 }
@@ -163,12 +178,19 @@ function languageHint(text: string): string | null {
   return null;
 }
 
-export function extractPrograms(html: string, pageUrl: string, matcher: FieldMatcher, siteDomain: string): ProgramCandidate[] {
-  const clean = stripNoise(html);
+export function extractPrograms(
+  html: string,
+  pageUrl: string,
+  matcher: FieldMatcher,
+  siteDomain: string,
+  pre?: { clean: string; anchors: Anchor[] },
+): ProgramCandidate[] {
+  const clean = pre?.clean ?? stripNoise(html);
   const found = new Map<string, ProgramCandidate>();
   const ctxLevel = pageLevel(pageUrl, clean);
 
   const add = (rawText: string, url: string, allowContext: boolean) => {
+    if (rawText.length < 6 || rawText.length > 220 || !matcher.matches(rawText)) return;
     const language = languageHint(rawText);
     const text = tidyName(rawText.replace(LANGUAGE_PHRASE, " "));
     if (!plausibleTitle(text) || !matcher.matches(text) || isGenericTitle(text)) return;
@@ -179,12 +201,14 @@ export function extractPrograms(html: string, pageUrl: string, matcher: FieldMat
     if (!found.has(key)) found.set(key, { name: text, level: lvl.level, degree: lvl.degree, url, language });
   };
 
-  for (const a of anchors(clean, pageUrl)) {
-    let host = "";
-    try {
-      host = new URL(a.href).hostname;
-    } catch {
-      continue;
+  for (const a of pre?.anchors ?? anchors(clean, pageUrl)) {
+    let host = a.host ?? "";
+    if (!host) {
+      try {
+        host = new URL(a.href).hostname;
+      } catch {
+        continue;
+      }
     }
     add(a.text, registrableDomain(host) === siteDomain ? a.href : pageUrl, true);
   }
@@ -197,21 +221,30 @@ const STUDY_WORDS = /(stud(y|ies|ium|ieren|iengang|iengaenge|iengänge|ienangebo
 const SKIP_LINK = /(login|logout|news|event|calendar|press|presse|jobs|karriere|career|alumni|shop|donate|spenden|\.pdf$|\.docx?$|\.jpe?g$|\.png$|\.zip$|mailto:|\/search\b|\?q=|facebook|twitter|instagram|linkedin|youtube|tiktok)/i;
 
 export function scoreLink(a: Anchor, siteDomain: string, matcher: FieldMatcher): number {
-  let url: URL;
-  try {
-    url = new URL(a.href);
-  } catch {
-    return 0;
+  let host = a.host;
+  let path = a.path;
+  if (host === undefined || path === undefined) {
+    let url: URL;
+    try {
+      url = new URL(a.href);
+    } catch {
+      return 0;
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") return 0;
+    host = url.hostname;
+    path = url.pathname;
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return 0;
-  if (registrableDomain(url.hostname) !== siteDomain) return 0;
-  const hay = `${decodeURIComponent(url.pathname)} ${a.text}`;
+  if (registrableDomain(host) !== siteDomain) return 0;
+  try {
+    path = decodeURIComponent(path);
+  } catch {}
+  const hay = `${path} ${a.text}`;
   if (SKIP_LINK.test(hay) || SKIP_LINK.test(a.href)) return 0;
   let score = 0;
   if (STUDY_WORDS.test(hay) || STUDY_WORDS_INTL.test(hay)) score += 2;
   if (matcher.matches(hay)) score += 3;
-  if (detectLevel(a.text)) score += 1;
-  if (/\/(en|en-gb|en-us|english)(\/|$)/i.test(url.pathname)) score += 1;
+  if (a.text.length < 140 && detectLevel(a.text)) score += 1;
+  if (/\/(en|en-gb|en-us|english)(\/|$)/i.test(path)) score += 1;
   return score;
 }
 
@@ -226,11 +259,16 @@ const SKIP_EMAIL = /(noreply|no-reply|donotreply|webmaster|datenschutz|privacy|d
 
 export function extractEmails(html: string, pageUrl: string, siteDomain: string): ContactCandidate[] {
   const found = new Map<string, ContactCandidate>();
-  const text = decodeEntities(html).replace(/\s*\[(at|ät)\]\s*/gi, "@").replace(/\s*\((at|ät)\)\s*/gi, "@");
-  const re = /[a-z0-9][a-z0-9._%+-]{0,63}@([a-z0-9-]+\.)+[a-z]{2,}/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text))) {
-    const email = m[0].toLowerCase().replace(/\.+$/, "");
+  if (!/@|&#0*64;|&#x0*40;|&commat;|[[(]\s*[aä]t\s*[\])]/i.test(html)) return [];
+  const text = html
+    .replace(/&#0*64;|&#x0*40;|&commat;/gi, "@")
+    .replace(/\s*\[(at|ät)\]\s*/gi, "@")
+    .replace(/\s*\((at|ät)\)\s*/gi, "@");
+  for (let at = text.indexOf("@"); at !== -1; at = text.indexOf("@", at + 1)) {
+    const left = /[a-z0-9][a-z0-9._%+-]{0,63}$/i.exec(text.slice(Math.max(0, at - 64), at));
+    const right = /^([a-z0-9-]+\.)+[a-z]{2,}/i.exec(text.slice(at + 1, at + 256));
+    if (!left || !right) continue;
+    const email = `${left[0]}@${right[0]}`.toLowerCase().replace(/\.+$/, "");
     const [local, host] = email.split("@");
     if (!host || /\.(png|jpe?g|gif|svg|webp)$/.test(host)) continue;
     if (registrableDomain(host) !== siteDomain) continue;
@@ -247,4 +285,27 @@ export function extractEmails(html: string, pageUrl: string, siteDomain: string)
     });
   }
   return [...found.values()];
+}
+
+export interface PageAnalysis {
+  programs: ProgramCandidate[];
+  contacts: ContactCandidate[];
+  links: { url: string; score: number }[];
+}
+
+export function analyzePage(html: string, pageUrl: string, matcher: FieldMatcher, siteDomain: string): PageAnalysis {
+  const clean = stripNoise(html);
+  const list = anchors(clean, pageUrl);
+  const programs = extractPrograms(html, pageUrl, matcher, siteDomain, { clean, anchors: list });
+  const contacts = extractEmails(clean, pageUrl, siteDomain);
+  const seen = new Set<string>();
+  const links: { url: string; score: number }[] = [];
+  for (const a of list) {
+    const url = a.href.split("#")[0];
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const score = scoreLink(a, siteDomain, matcher);
+    if (score > 0) links.push({ url, score });
+  }
+  return { programs, contacts, links };
 }

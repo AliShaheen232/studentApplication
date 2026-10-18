@@ -50,12 +50,21 @@ export function fieldMatcher(field: string): FieldMatcher {
     }
   }
   const list = [...keywords].filter(Boolean);
-  const patterns = list.map((k) => (NO_WORD_BOUNDARY.test(k) ? new RegExp(escape(k), "iu") : new RegExp(`(^|[^\\p{L}])${escape(k)}`, "iu")));
+  const re = keywordRegex(list);
   return {
     field: canonical?.name ?? field.trim(),
     keywords: list,
-    matches: (text: string) => patterns.some((p) => p.test(text)),
+    matches: (text: string) => !!re && re.test(text),
   };
+}
+
+function keywordRegex(list: string[]): RegExp | null {
+  const bounded = list.filter((k) => !NO_WORD_BOUNDARY.test(k)).map(escape);
+  const loose = list.filter((k) => NO_WORD_BOUNDARY.test(k)).map(escape);
+  const parts: string[] = [];
+  if (bounded.length) parts.push(`(?:^|[^\\p{L}])(?:${bounded.join("|")})`);
+  if (loose.length) parts.push(`(?:${loose.join("|")})`);
+  return parts.length ? new RegExp(parts.join("|"), "iu") : null;
 }
 
 const ALL_FIELDS = FIELDS_OF_STUDY.map((f) => fieldMatcher(f.name));
@@ -64,8 +73,11 @@ export function classifySubjects(title: string): string[] {
   return ALL_FIELDS.filter((m) => m.matches(title)).map((m) => m.field);
 }
 
+const ANY_KEYWORDS = [...new Set(ALL_FIELDS.flatMap((m) => m.keywords))];
+const ANY_RE = keywordRegex(ANY_KEYWORDS);
+
 export const anyFieldMatcher: FieldMatcher = {
   field: "All subjects",
-  keywords: ALL_FIELDS.flatMap((m) => m.keywords),
-  matches: (text: string) => ALL_FIELDS.some((m) => m.matches(text)),
+  keywords: ANY_KEYWORDS,
+  matches: (text: string) => !!ANY_RE && ANY_RE.test(text),
 };

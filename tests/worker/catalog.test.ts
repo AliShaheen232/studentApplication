@@ -31,21 +31,63 @@ describe("catalog and discovery", () => {
     assert.ok(fields.data.some((f: { name: string }) => f.name === "Computer Science"));
   });
 
-  test("results filter by country and field and report real counts", async () => {
-    const res = await student.request("GET", "/api/discovery/results?country=Germany&field=Computer%20Science");
+  test("results need country, field and level and read only matching rows", async () => {
+    assert.equal((await student.request("GET", "/api/discovery/results?country=Germany&field=Computer%20Science")).status, 400);
+    assert.equal((await student.request("GET", "/api/discovery/results?country=Germany&field=Basket%20weaving&level=Master")).status, 400);
+    assert.equal((await student.request("GET", "/api/discovery/results?country=India&field=Computer%20Science&level=Master")).status, 400);
+    const res = await student.request("GET", "/api/discovery/results?country=Germany&field=Computer%20Science&level=master");
     assert.equal(res.status, 200);
     assert.ok(res.data.programs.length > 0);
-    assert.ok(res.data.programs.every((p: { country: string }) => p.country === "Germany"));
+    assert.ok(res.data.programs.every((p: { country: string; level: string }) => p.country === "Germany" && p.level === "Master"));
+    assert.deepEqual(res.data.filters, { country_code: "DE", field: "Computer Science", level: "Master", max_tuition: null });
     assert.equal(res.data.stats.programmesExtracted, res.data.programs.length);
     assert.equal(res.data.stats.pagesInspected, 0);
+    assert.deepEqual(res.data.available_study_levels.map((l: { level: string }) => l.level), ["Bachelor", "Master", "PhD", "MBA"]);
   });
 
-  test("level filter and available levels", async () => {
-    const all = await student.request("GET", "/api/discovery/results?country=United%20States&field=Computer%20Science");
-    const levels = all.data.available_study_levels.map((l: { level: string }) => l.level);
-    assert.ok(levels.length > 0);
-    const one = await student.request("GET", `/api/discovery/results?country=United%20States&field=Computer%20Science&level=${levels[0]}`);
-    assert.ok(one.data.programs.every((p: { level: string }) => p.level === levels[0]));
+  test("budget keeps programmes under the limit and those without a listed fee", async () => {
+    raw.prepare("UPDATE programs SET tuition = NULL WHERE id = 'prog_mit_cs_ms'").run();
+    const res = await student.request("GET", "/api/discovery/results?country_code=US&field=Computer%20Science&level=Master&max_tuition=61000");
+    const ids = res.data.programs.map((p: { id: string }) => p.id);
+    assert.ok(ids.length >= 1);
+    assert.ok(res.data.programs.every((p: { tuition: number | null }) => p.tuition === null || p.tuition <= 61000));
+    raw.prepare("UPDATE program_search SET tuition = NULL WHERE program_id = 'prog_mit_cs_ms'").run();
+    const again = await student.request("GET", "/api/discovery/results?country_code=US&field=Computer%20Science&level=Master&max_tuition=100");
+    assert.deepEqual(again.data.programs.map((p: { id: string }) => p.id), ["prog_mit_cs_ms"]);
+  });
+
+  test("results come in pages of 50", async () => {
+    const insert = raw.prepare(`INSERT INTO programs (id, university_id, name, level, subject_category) VALUES (?, 'univ_tum', ?, 'Master', 'Law')`);
+    const index = raw.prepare(`INSERT INTO program_search (country_code, subject, level, rank_sort, program_id, university_id) VALUES ('DE', 'Law', 'Master', 100000, ?, 'univ_tum')`);
+    for (let i = 0; i < 55; i++) {
+      insert.run(`prog_law_${String(i).padStart(2, "0")}`, `Law ${i}`);
+      index.run(`prog_law_${String(i).padStart(2, "0")}`);
+    }
+    const first = await student.request("GET", "/api/discovery/results?country_code=DE&field=Law&level=Master");
+    assert.equal(first.data.programs.length, 50);
+    assert.equal(first.data.has_more, true);
+    const second = await student.request("GET", "/api/discovery/results?country_code=DE&field=Law&level=Master&page=1");
+    assert.equal(second.data.programs.length, 5);
+    assert.equal(second.data.has_more, false);
+    assert.equal(second.data.stats.programmesExtracted, 55);
+  });
+
+  test("repeated searches for covered countries are served from the edge cache", async () => {
+    raw.prepare("INSERT INTO crawl_countries (country_code, country, institutions_total, imported_at, institutions_checked) VALUES ('DE', 'Germany', 3, '2026-10-01 00:00:00.000', 1)").run();
+    const store = new Map<string, Response>();
+    const g = globalThis as { caches?: unknown };
+    const real = g.caches;
+    g.caches = { default: { match: async (r: Request) => store.get(r.url)?.clone(), put: async (r: Request, res: Response) => void store.set(r.url, res) } };
+    try {
+      const url = "/api/discovery/results?country_code=DE&field=Computer%20Science&level=Master";
+      const first = await student.request("GET", url);
+      assert.equal(store.size, 1);
+      raw.prepare("DELETE FROM program_search").run();
+      const second = await student.request("GET", url);
+      assert.deepEqual(second.data.programs, first.data.programs);
+    } finally {
+      g.caches = real;
+    }
   });
 
   test("a new search is queued for the crawler and nothing is invented", async () => {
@@ -59,7 +101,7 @@ describe("catalog and discovery", () => {
     assert.equal(row.status, "pending");
     assert.equal(row.requested_by, "usr_a");
     assert.equal((raw.prepare("SELECT COUNT(*) AS n FROM universities").get() as { n: number }).n, before);
-    const results = await student.request("GET", "/api/discovery/results?country=Germany&country_code=DE&field=Computer%20Science");
+    const results = await student.request("GET", "/api/discovery/results?country=Germany&country_code=DE&field=Computer%20Science&level=Master");
     assert.equal(results.data.search.status, "pending");
   });
 
@@ -79,7 +121,7 @@ describe("catalog and discovery", () => {
     assert.equal(res.data.status, "ready");
     assert.equal(res.data.programmes_extracted, 40);
     assert.match(res.data.message, /saved results/);
-    const results = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science");
+    const results = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science&level=Master");
     assert.equal(results.data.search.stale, false);
     assert.equal(results.data.stats.pagesInspected, 90);
     assert.equal(results.data.stats.lastUpdated, "2026-10-10 08:00:00.000");
@@ -91,7 +133,7 @@ describe("catalog and discovery", () => {
     const res = await student.request("POST", "/api/discovery/jobs", { body: { country_code: "DE", field: "Computer Science" } });
     assert.equal(res.data.status, "pending");
     assert.match(res.data.message, /Refreshing/);
-    const results = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science");
+    const results = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science&level=Master");
     assert.ok(results.data.programs.length > 0);
     assert.equal(results.data.search.status, "pending");
   });
@@ -105,7 +147,8 @@ describe("catalog and discovery", () => {
   });
 
   test("imported countries answer instantly from the database with coverage", async () => {
-    raw.prepare("INSERT INTO crawl_countries (country_code, country, institutions_total, imported_at) VALUES ('DE', 'Germany', 3, '2026-10-01 00:00:00.000')").run();
+    raw.prepare(`INSERT INTO crawl_countries (country_code, country, institutions_total, imported_at, institutions_checked, institutions_with_programs, last_update)
+      VALUES ('DE', 'Germany', 3, '2026-10-01 00:00:00.000', 1, 1, '2026-10-17 09:00:00.000')`).run();
     raw.prepare(`INSERT INTO institution_queue (domain, university_id, name, country_code, website, status, last_crawled_at, programs_found)
       VALUES ('tum.de', 'univ_tum', 'TUM', 'DE', 'https://www.tum.de/', 'done', '2026-10-17 09:00:00.000', 3),
              ('x.de', 'univ_x', 'X', 'DE', 'https://x.de/', 'pending', NULL, 0)`).run();
@@ -114,7 +157,7 @@ describe("catalog and discovery", () => {
     assert.ok(res.data.programmes_extracted > 0);
     assert.match(res.data.message, /1 of 3 universities checked/);
     assert.equal((raw.prepare("SELECT COUNT(*) AS n FROM search_cache").get() as { n: number }).n, 0);
-    const results = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science");
+    const results = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science&level=Master");
     assert.equal(results.data.coverage.institutions_total, 3);
     assert.equal(results.data.coverage.institutions_checked, 1);
     assert.equal(results.data.search, null);
@@ -124,10 +167,10 @@ describe("catalog and discovery", () => {
   });
 
   test("programmes removed from a university website are hidden", async () => {
-    const before = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science");
+    const before = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science&level=Master");
     const victim = before.data.programs[0].id;
     raw.prepare("UPDATE programs SET removed_at = '2026-10-01 00:00:00.000' WHERE id = ?").run(victim);
-    const after = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science");
+    const after = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science&level=Master");
     assert.equal(after.data.programs.length, before.data.programs.length - 1);
     assert.ok(!after.data.programs.some((p: { id: string }) => p.id === victim));
   });
@@ -169,7 +212,7 @@ describe("catalog and discovery", () => {
   });
 
   test("LIKE wildcards in search are treated as text", async () => {
-    const res = await student.request("GET", "/api/discovery/results?q=%25");
+    const res = await student.request("GET", "/api/discovery/results?country_code=DE&field=Computer%20Science&level=Master&q=%25");
     assert.equal(res.data.programs.length, 0);
   });
 

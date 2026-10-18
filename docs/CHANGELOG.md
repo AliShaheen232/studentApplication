@@ -2,6 +2,27 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.11.0] - 2026-10-18
+
+### Live discovery by university
+
+- The GitHub bulk crawler now stores only which subjects and levels each university teaches (`university_subjects`, migration 0011), about 10 writes per university instead of about 200.
+- Discover lists 15 universities per page and crawls their programmes live from the browser, one page per Worker request (robots.txt, 1.5 s per host, 8 pages per university, own domain only). Results are saved for 30 days and the next pages are checked in the background.
+- Caps: 400 universities a day overall (`LIVE_CRAWLS_PER_DAY`), 60 per student. Live writes count toward the crawler's daily D1 budget.
+- Page extraction is about 3 times faster (one pass per page, combined field regex).
+- Programme details show "Not listed" for unknown duration.
+
+## [1.10.0] - 2026-10-18
+
+### Discover reads only matching rows
+
+- Discover now needs country, field of study and study level; budget and keyword are optional.
+- New `program_search` table (migration 0010): primary key `(country_code, subject, level, rank_sort, program_id)`, WITHOUT ROWID. A search reads about 50 rows instead of every programme in the country.
+- 50 results per page with "Load 50 more"; budget keeps programmes with no listed fee ("Fee not listed").
+- Repeated searches served from the Workers Cache for 30 minutes.
+- Coverage counters stored on `crawl_countries`; the crawler queue uses a partial index, so neither scans whole tables.
+- Old `subject` and `level` indexes on `programs` dropped, so each programme costs fewer writes.
+
 ## [1.9.1] - 2026-10-18
 
 ### Crawler write budget fix

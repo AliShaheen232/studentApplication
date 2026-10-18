@@ -41,4 +41,6 @@
   - Bulk catalogue for Europe and 13 more countries, refreshed every 30 days; 128 tests passing.
   - Destination countries limited to the 58 popular countries (max 10 in profile); 128 tests passing.
   - Crawler write budget now meters real D1 rows_written (60,000/day); 129 tests passing.
+  - Discover needs country, field and level; indexed search table, pages of 50, edge cache; 132 tests passing.
+  - Live discovery by university (pages of 15, crawled live, bulk crawler stores subject tags only); 139 tests passing.
   - Next: documents on R2, the matcher on the new profile fields, then the outbox that sends university emails.

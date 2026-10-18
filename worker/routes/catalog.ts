@@ -41,14 +41,12 @@ export interface Coverage {
   last_update: string | null;
 }
 
-async function coverage(env: Env, countryCode: string): Promise<Coverage | null> {
+export async function coverage(env: Env, countryCode: string): Promise<Coverage | null> {
   const row = await env.adminpath_prod_d1
     .prepare(
-      `SELECT c.country_code, c.institutions_total,
-         (SELECT COUNT(*) FROM institution_queue q WHERE q.country_code = c.country_code AND q.last_crawled_at IS NOT NULL) AS institutions_checked,
-         (SELECT COUNT(*) FROM institution_queue q WHERE q.country_code = c.country_code AND q.programs_found > 0) AS institutions_with_programs,
-         (SELECT MAX(last_crawled_at) FROM institution_queue q WHERE q.country_code = c.country_code) AS last_update
-       FROM crawl_countries c WHERE c.country_code = ? AND c.imported_at IS NOT NULL`,
+      `SELECT country_code, institutions_total, COALESCE(institutions_checked, 0) AS institutions_checked,
+         COALESCE(institutions_with_programs, 0) AS institutions_with_programs, last_update
+       FROM crawl_countries WHERE country_code = ? AND imported_at IS NOT NULL`,
     )
     .bind(countryCode)
     .first<Coverage>();
@@ -80,7 +78,25 @@ const LEVEL_LABELS: Record<string, string> = {
   Bachelor: "Bachelor's / Undergraduate",
   Master: "Master's / Graduate",
   PhD: "PhD / Doctoral",
+  MBA: "MBA",
 };
+export const STUDY_LEVELS = Object.keys(LEVEL_LABELS);
+export const PAGE_SIZE = 50;
+const CACHE_SECONDS = 1800;
+
+function pick(list: string[], value: string): string | null {
+  const v = value.trim().toLowerCase();
+  return list.find((x) => x.toLowerCase() === v) ?? null;
+}
+
+interface EdgeCache {
+  match(req: Request): Promise<Response | undefined>;
+  put(req: Request, res: Response): Promise<void>;
+}
+
+function edgeCache(): EdgeCache | null {
+  return (globalThis as { caches?: { default?: EdgeCache } }).caches?.default ?? null;
+}
 
 function like(value: string): string {
   return `%${value.toLowerCase().replace(/[%_\\]/g, "\\$&")}%`;
@@ -207,52 +223,70 @@ export function registerCatalogRoutes(router: Router): void {
   router.get("/api/discovery/fields", () => json(FIELDS_OF_STUDY));
 
   router.get("/api/discovery/results", async (c) => {
-    const maxRaw = c.url.searchParams.get("max_tuition");
     const countryParam = param(c.url, "country_code", 3) || param(c.url, "country");
     const country = countryParam ? resolveCountry(countryParam) : null;
-    const field = param(c.url, "field");
-    const base: Filters = {
-      country: country?.code || countryParam,
-      field,
-      q: param(c.url, "q"),
-      maxTuition: maxRaw ? Number(maxRaw) : null,
-    };
-    const db = c.env.adminpath_prod_d1;
-    const { sql, params } = programQuery(base);
-    let { results } = await db.prepare(sql).bind(...params).all<Record<string, unknown>>();
-    if (!results.length && country && countryParam !== country.code) {
-      const byName = programQuery({ ...base, country: country.name });
-      results = (await db.prepare(byName.sql).bind(...byName.params).all<Record<string, unknown>>()).results;
-    }
+    const field = pick(FIELDS_OF_STUDY.map((f) => f.name), param(c.url, "field"));
+    const level = pick(STUDY_LEVELS, param(c.url, "level", 20));
+    if (!country || !field || !level) return error(400, "Choose a destination country, field of study and study level.");
+    const maxRaw = Number(c.url.searchParams.get("max_tuition"));
+    const maxTuition = c.url.searchParams.get("max_tuition") && Number.isFinite(maxRaw) && maxRaw > 0 ? Math.round(maxRaw) : null;
+    const q = param(c.url, "q", 60).toLowerCase();
+    const page = Math.min(Math.max(Math.floor(Number(c.url.searchParams.get("page")) || 0), 0), 200);
 
-    const counts: Record<string, number> = {};
-    for (const p of results) {
-      const lvl = (p.level as string) || "Other";
-      counts[lvl] = (counts[lvl] || 0) + 1;
-    }
-    const level = param(c.url, "level", 20).toLowerCase();
-    const programs = level ? results.filter((p) => String(p.level || "").toLowerCase() === level) : results;
-    const institutions = new Set(results.map((p) => p.university_id)).size;
-    const search = country && field ? await searchStatus(c.env, country.code, field) : null;
-    const cover = country ? await coverage(c.env, country.code) : null;
+    const cache = edgeCache();
+    const cacheKey = new Request(
+      `https://discovery-cache.admitpath/${country.code}/${encodeURIComponent(field)}/${level}?max=${maxTuition ?? ""}&q=${encodeURIComponent(q)}&page=${page}`,
+    );
+    const hit = cache ? await cache.match(cacheKey) : undefined;
+    if (hit) return new Response(hit.body, hit);
 
-    return json({
+    const where = ["s.country_code = ?", "s.subject = ?", "s.level = ?", "p.removed_at IS NULL"];
+    const params: unknown[] = [country.code, field, level];
+    if (maxTuition !== null) {
+      where.push("(s.tuition IS NULL OR s.tuition <= ?)");
+      params.push(maxTuition);
+    }
+    if (q) {
+      where.push("(LOWER(p.name) LIKE ? ESCAPE '\\' OR LOWER(u.name) LIKE ? ESCAPE '\\' OR LOWER(u.city) LIKE ? ESCAPE '\\')");
+      params.push(like(q), like(q), like(q));
+    }
+    const { results } = await c.env.adminpath_prod_d1
+      .prepare(
+        `SELECT p.*, u.name AS university_name, u.country, u.country_code, u.city, u.ranking, u.domain, u.website
+         FROM program_search s JOIN programs p ON p.id = s.program_id JOIN universities u ON u.id = s.university_id
+         WHERE ${where.join(" AND ")} ORDER BY s.rank_sort, s.program_id LIMIT ? OFFSET ?`,
+      )
+      .bind(...params, PAGE_SIZE + 1, page * PAGE_SIZE)
+      .all<Record<string, unknown>>();
+    const programs = results.slice(0, PAGE_SIZE);
+    const cover = await coverage(c.env, country.code);
+    const search = cover ? null : await searchStatus(c.env, country.code, field);
+
+    const res = json({
       programs,
-      total_count: programs.length,
-      available_study_levels: Object.entries(counts).map(([lvl, count]) => ({ level: lvl, label: LEVEL_LABELS[lvl] || lvl, count })),
-      search: cover ? null : search,
+      page,
+      page_size: PAGE_SIZE,
+      has_more: results.length > PAGE_SIZE,
+      filters: { country_code: country.code, field, level, max_tuition: maxTuition },
+      available_study_levels: STUDY_LEVELS.map((lvl) => ({ level: lvl, label: LEVEL_LABELS[lvl] })),
+      search,
       coverage: cover,
       stats: {
-        institutionsDiscovered: institutions,
-        programmesExtracted: results.length,
+        institutionsDiscovered: cover?.institutions_with_programs ?? search?.institutions_count ?? 0,
+        programmesExtracted: page * PAGE_SIZE + programs.length,
         pagesInspected: cover ? 0 : (search?.pages_inspected ?? 0),
         lastUpdated: cover?.last_update ?? search?.fetched_at ?? null,
       },
     });
+    if (cache && (cover || search?.status === "ready")) {
+      res.headers.set("Cache-Control", `public, max-age=${CACHE_SECONDS}`);
+      await cache.put(cacheKey, res.clone());
+    }
+    return res;
   });
 
   router.post("/api/discovery/jobs", requireAuth, async (c) => {
-    const body = await readJson<{ country?: unknown; country_code?: unknown; field?: unknown; preferences?: unknown }>(c.req);
+    const body = await readJson<{ country?: unknown; country_code?: unknown; field?: unknown; level?: unknown; preferences?: unknown }>(c.req);
     const countryRaw = typeof body?.country_code === "string" && body.country_code.trim()
       ? body.country_code
       : typeof body?.country === "string" ? body.country : "";
@@ -265,9 +299,18 @@ export function registerCatalogRoutes(router: Router): void {
     const now = sqlTimestamp();
     const cover = await coverage(c.env, country.code);
     if (cover) {
-      const { sql, params } = programQuery({ country: country.code, field });
-      const { results } = await db.prepare(sql).bind(...params).all<Record<string, unknown>>();
-      const institutions = new Set(results.map((p) => p.university_id)).size;
+      const subject = pick(FIELDS_OF_STUDY.map((f) => f.name), field) ?? field;
+      const level = typeof body?.level === "string" ? pick(STUDY_LEVELS, body.level) : null;
+      const counts = await db
+        .prepare(
+          `SELECT COUNT(*) AS n, COUNT(DISTINCT university_id) AS u FROM program_search
+           WHERE country_code = ? AND subject = ?${level ? " AND level = ?" : ""}`,
+        )
+        .bind(...(level ? [country.code, subject, level] : [country.code, subject]))
+        .first<{ n: number; u: number }>();
+      const n = Number(counts?.n ?? 0);
+      const institutions = Number(counts?.u ?? 0);
+      const what = `${n} ${level ? `${level} ` : ""}${subject} programmes at ${institutions} universities in ${country.name}`;
       const done = cover.institutions_checked >= cover.institutions_total;
       return json({
         success: true,
@@ -275,11 +318,11 @@ export function registerCatalogRoutes(router: Router): void {
         search_key: key,
         status: "ready",
         institutions_discovered: institutions,
-        programmes_extracted: results.length,
+        programmes_extracted: n,
         coverage: cover,
         message: done
-          ? `${results.length} ${field} programmes at ${institutions} universities in ${country.name}.`
-          : `${results.length} ${field} programmes at ${institutions} universities in ${country.name} so far. ${cover.institutions_checked} of ${cover.institutions_total} universities checked; more are added every hour.`,
+          ? `${what}.`
+          : `${what} so far. ${cover.institutions_checked} of ${cover.institutions_total} universities checked; more are added every hour.`,
       });
     }
     const existing = await searchStatus(c.env, country.code, field);
@@ -355,9 +398,8 @@ export function registerCatalogRoutes(router: Router): void {
   router.get("/api/discovery/coverage", async (c) => {
     const { results } = await c.env.adminpath_prod_d1
       .prepare(
-        `SELECT c.country_code, c.country, c.institutions_total,
-           (SELECT COUNT(*) FROM institution_queue q WHERE q.country_code = c.country_code AND q.last_crawled_at IS NOT NULL) AS institutions_checked
-         FROM crawl_countries c WHERE c.imported_at IS NOT NULL ORDER BY c.country`,
+        `SELECT country_code, country, institutions_total, COALESCE(institutions_checked, 0) AS institutions_checked
+         FROM crawl_countries WHERE imported_at IS NOT NULL ORDER BY country`,
       )
       .all();
     return json(results);

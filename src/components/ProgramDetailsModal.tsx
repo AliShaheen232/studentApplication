@@ -131,7 +131,7 @@ export default function ProgramDetailsModal({
                 Duration
               </span>
               <span className="font-semibold text-slate-800 text-xs">
-                {program.duration_months} Months
+                {program.duration_months ? `${program.duration_months} Months` : "Not listed"}
               </span>
             </div>
 

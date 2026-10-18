@@ -164,16 +164,53 @@ describe("bulk pipeline", () => {
     assert.equal(q.status, "done");
     assert.ok(q.next_crawl_at >= sqlTimestamp(NOW + 30 * DAY) && q.next_crawl_at <= sqlTimestamp(NOW + 34 * DAY));
     assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM contacts WHERE email = 'studienberatung@alpha.de'").get()!.n, 1);
+    const indexed = raw.prepare("SELECT country_code, subject, level FROM program_search WHERE university_id = ? ORDER BY subject").all(row.university_id) as Record<string, string>[];
+    assert.deepEqual(indexed.map((r) => [r.country_code, r.subject, r.level]), [
+      ["DE", "Business Administration", "Bachelor"],
+      ["DE", "Computer Science", "Master"],
+      ["DE", "Natural Sciences", "PhD"],
+    ]);
+    const cov = raw.prepare("SELECT institutions_checked, institutions_with_programs FROM crawl_countries WHERE country_code = 'DE'").get() as Record<string, number>;
+    assert.deepEqual([cov.institutions_checked, cov.institutions_with_programs], [1, 1]);
 
-    const same = await crawlInstitution(db, new PoliteFetcher({ ...noSleep, fetchImpl: site(ALPHA_V1) }), row, { ...opts, now: NOW + 31 * DAY });
+    const fresh = () => ({ ...row, ...(raw.prepare("SELECT last_crawled_at, programs_found FROM institution_queue WHERE domain = 'alpha.de'").get() as object) });
+    const same = await crawlInstitution(db, new PoliteFetcher({ ...noSleep, fetchImpl: site(ALPHA_V1) }), fresh(), { ...opts, now: NOW + 31 * DAY });
     assert.equal(same.inserted + same.updated + same.removed, 0);
-    assert.equal(same.writes, 2);
+    assert.equal(same.writes, 3);
 
     const v2 = { ...ALPHA_V1, "https://www.alpha.de/studium": ALPHA_V1["https://www.alpha.de/studium"].replace('<li><a href="/s/phys-phd">Promotion in Physik</a></li>', "") };
-    const later = await crawlInstitution(db, new PoliteFetcher({ ...noSleep, fetchImpl: site(v2) }), row, { ...opts, now: NOW + 62 * DAY });
+    const later = await crawlInstitution(db, new PoliteFetcher({ ...noSleep, fetchImpl: site(v2) }), fresh(), { ...opts, now: NOW + 62 * DAY });
     assert.equal(later.removed, 1);
     const removed = raw.prepare("SELECT removed_at FROM programs WHERE id = ?").get(programId("alpha.de", "PhD", "Promotion in Physik")) as { removed_at: string };
     assert.equal(removed.removed_at, sqlTimestamp(NOW + 62 * DAY));
+    assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM program_search WHERE university_id = ?").get(row.university_id)!.n, 2);
+    const cov2 = raw.prepare("SELECT institutions_checked, institutions_with_programs FROM crawl_countries WHERE country_code = 'DE'").get() as Record<string, number>;
+    assert.deepEqual([cov2.institutions_checked, cov2.institutions_with_programs], [1, 1]);
+  });
+
+  test("tags mode stores only subjects and levels per university, no programmes", async () => {
+    const { db, raw } = sqliteDb();
+    const budget = new WriteBudget(db, NOW, 80000);
+    await importCountries(db, budget, ["DE"], async () => [UNI_A], NOW);
+    const [row] = await claimInstitutions(db, 1, NOW);
+    const opts = { maxPages: 10, maxPrograms: 300, now: NOW, mode: "tags" as const };
+    const out = await crawlInstitution(db, new PoliteFetcher({ ...noSleep, fetchImpl: site(ALPHA_V1) }), row, opts);
+    assert.equal(out.found, 3);
+    assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM programs WHERE university_id = ?").get(row.university_id)!.n, 0);
+    const tags = raw.prepare("SELECT subject, levels FROM university_subjects WHERE university_id = ? ORDER BY subject").all(row.university_id) as Record<string, string>[];
+    assert.deepEqual(tags.map((t) => [t.subject, t.levels]), [
+      ["Business Administration", "Bachelor"],
+      ["Computer Science", "Master"],
+      ["Natural Sciences", "PhD"],
+    ]);
+    const q = raw.prepare("SELECT tags, status FROM institution_queue WHERE domain = 'alpha.de'").get() as Record<string, string>;
+    assert.equal(q.status, "done");
+    assert.deepEqual(Object.keys(JSON.parse(q.tags)).sort(), ["Business Administration", "Computer Science", "Natural Sciences"]);
+
+    raw.prepare("UPDATE institution_queue SET status = 'pending', next_crawl_at = NULL").run();
+    const [again] = await claimInstitutions(db, 1, NOW + DAY);
+    const second = await crawlInstitution(db, new PoliteFetcher({ ...noSleep, fetchImpl: site(ALPHA_V1) }), again, { ...opts, now: NOW + DAY });
+    assert.equal(second.inserted + second.updated, 0);
   });
 
   test("an unreachable site is retried tomorrow and never wipes existing programmes", async () => {
@@ -230,6 +267,19 @@ describe("bulk pipeline", () => {
     });
     assert.equal(capped.institutions, 0);
     assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM institution_queue WHERE status = 'running'").get()!.n, 0);
+  });
+
+  test("hot queries use indexes and never sort whole tables", () => {
+    const { raw } = sqliteDb();
+    const plan = (sql: string) => (raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all() as { detail: string }[]).map((r) => r.detail).join(" | ");
+    const search = plan(`SELECT p.id FROM program_search s JOIN programs p ON p.id = s.program_id JOIN universities u ON u.id = s.university_id
+      WHERE s.country_code = 'DE' AND s.subject = 'Law' AND s.level = 'Master' AND p.removed_at IS NULL ORDER BY s.rank_sort, s.program_id LIMIT 51`);
+    assert.match(search, /SEARCH s USING PRIMARY KEY \(country_code=\? AND subject=\? AND level=\?\)/);
+    assert.doesNotMatch(search, /TEMP B-TREE/);
+    const pending = plan("SELECT domain FROM institution_queue INDEXED BY idx_iq_pending WHERE status = 'pending' ORDER BY students DESC LIMIT 16");
+    assert.doesNotMatch(pending, /TEMP B-TREE/);
+    const due = plan("SELECT domain FROM institution_queue WHERE status = 'done' AND next_crawl_at <= '2026' ORDER BY next_crawl_at LIMIT 16");
+    assert.doesNotMatch(due, /TEMP B-TREE/);
   });
 
   test("budget counts real rows written and stops cleanly when D1 refuses writes", async () => {

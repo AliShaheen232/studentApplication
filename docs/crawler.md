@@ -105,7 +105,9 @@ All of Europe (AL AD AT BA BE BG BY CH CY CZ DE DK EE ES FI FR GB GR HR HU IE IS
 5. Optional local run: `npm run crawl:bulk` with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` set in the shell.
 
 ### Config
-`CRAWL_COUNTRIES`, `D1_WRITE_BUDGET_PER_DAY` (60000), `BULK_TIME_BUDGET_MIN` (40), `BULK_BATCH_SIZE` (16), `CRAWL_CONCURRENCY` (8), `BULK_MAX_PAGES` (25), `BULK_MAX_PROGRAMS` (300).
+`CRAWL_COUNTRIES`, `D1_WRITE_BUDGET_PER_DAY` (60000), `BULK_TIME_BUDGET_MIN` (40), `BULK_BATCH_SIZE` (16), `CRAWL_CONCURRENCY` (8), `BULK_MAX_PAGES` (12), `BULK_MAX_PROGRAMS` (300), `BULK_MODE` (`tags`, or `full` for the old behaviour).
+
+Since 1.11.0 the bulk crawler runs in `tags` mode: it visits each university as before but writes only the subjects and levels it found (`university_subjects`, plus `institution_queue.tags` to skip unchanged tags), not programme rows. Programmes are crawled live from Discover; see `docs/live-discovery.md`.
 
 ### Tests
 `tests/crawler/bulk.test.ts`: multilingual subjects and degree levels, generic heading filter, country list, import and seeded-university reuse, 30-day re-import, claim order, change-only writes, removal marking, outage protection with next-day retry, write budget stop, real rows_written metering, clean stop when D1 refuses writes, gzipped snapshot without contacts. Worker: instant answer with coverage, coverage list, removed programmes hidden (`tests/worker/catalog.test.ts`).
@@ -113,3 +115,10 @@ All of Europe (AL AD AT BA BE BG BY CH CY CZ DE DK EE ES FI FR GB GR HR HU IE IS
 ### Unverified
 - Not yet run against the live Wikidata endpoint or real university sites from this build machine. Watch the first workflow runs: the log prints "Imported N institutions for <country>" and "Batch done: ...".
 - Wikidata's full query can time out for very large countries (US, CN); the simpler fallback query then lists fewer institution types.
+
+## Search index and read budget
+
+- Every programme insert, change or removal also updates `program_search` (`crawler/searchIndex.ts`), one row per recognised subject. Programmes with no recognised subject are not indexed.
+- Each crawled institution adds one write to `crawl_countries` (checked and with-programmes counters, last update).
+- Picking the next institutions uses `idx_iq_pending` (partial index, largest first) and `idx_iq_status_next` for refreshes, so D1 never reads the whole queue. `tests/crawler/bulk.test.ts` checks the query plans.
+- Migration 0010 must be applied before the crawler runs: the queue query names `idx_iq_pending`.
