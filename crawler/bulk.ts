@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { sqlTimestamp } from "../worker/lib/clock.ts";
 import { countryName } from "./countries.ts";
-import type { Db, Statement } from "./d1.ts";
+import { isLimitError, type Db, type Statement } from "./d1.ts";
 import type { PoliteFetcher } from "./fetcher.ts";
 import { anyFieldMatcher, classifySubjects } from "./fields.ts";
 import { crawlUniversity, pool } from "./job.ts";
@@ -29,13 +29,21 @@ export class WriteBudget {
   private db: Db;
   private day: string;
   private limit: number;
+  private base: number;
+  private manual = 0;
+  private saved = 0;
   used = 0;
-  spent = 0;
 
   constructor(db: Db, now: number, limit: number) {
     this.db = db;
     this.day = new Date(now).toISOString().slice(0, 10);
     this.limit = limit;
+    this.base = db.rowsWritten?.() ?? 0;
+  }
+
+  spent(): number {
+    const metered = this.db.rowsWritten?.();
+    return (metered === undefined ? this.manual : metered - this.base) - this.saved;
   }
 
   async load(): Promise<void> {
@@ -44,22 +52,23 @@ export class WriteBudget {
   }
 
   remaining(): number {
-    return this.limit - this.used - this.spent;
+    return this.limit - this.used - this.spent();
   }
 
   add(rows: number): void {
-    this.spent += rows;
+    this.manual += rows;
   }
 
   async save(): Promise<void> {
-    if (!this.spent) return;
+    const spent = this.spent();
+    if (spent <= 0) return;
     await this.db.query(
       `INSERT INTO crawl_budget (day, rows_written) VALUES (?, ?)
        ON CONFLICT(day) DO UPDATE SET rows_written = crawl_budget.rows_written + excluded.rows_written`,
-      [this.day, this.spent],
+      [this.day, spent],
     );
-    this.used += this.spent;
-    this.spent = 0;
+    this.used += spent;
+    this.saved += spent;
   }
 }
 
@@ -372,12 +381,24 @@ export async function runBulk(db: Db, fetcher: PoliteFetcher, opts: BulkOptions)
   const totals = { institutions: 0, programsFound: 0, inserted: 0, updated: 0, removed: 0, pages: 0 };
   const changed = new Set<string>();
 
-  while (now() - started < opts.timeBudgetMs && budget.remaining() > opts.batchSize * 150) {
+  let perInstitution = 150;
+  const reserve = () => Math.max(2000, opts.batchSize * perInstitution * 2);
+  let hitLimit = false;
+  while (now() - started < opts.timeBudgetMs && budget.remaining() > reserve()) {
+    const before = budget.spent();
     const batch = await claimInstitutions(db, opts.batchSize, now());
     if (!batch.length) break;
-    const outcomes = await pool(batch, opts.concurrency, (row) =>
-      crawlInstitution(db, fetcher, row, { maxPages: opts.maxPages, maxPrograms: opts.maxPrograms, now: now() }),
-    );
+    let outcomes: InstitutionOutcome[];
+    try {
+      outcomes = await pool(batch, opts.concurrency, (row) =>
+        crawlInstitution(db, fetcher, row, { maxPages: opts.maxPages, maxPrograms: opts.maxPrograms, now: now() }),
+      );
+    } catch (e) {
+      if (!isLimitError(e)) throw e;
+      log(`D1 refused writes (${(e as Error).message}); stopping until the daily limit resets.`);
+      hitLimit = true;
+      break;
+    }
     for (const o of outcomes) {
       budget.add(o.writes);
       totals.institutions++;
@@ -388,11 +409,13 @@ export async function runBulk(db: Db, fetcher: PoliteFetcher, opts: BulkOptions)
       totals.pages += o.pages;
       if (o.inserted || o.updated || o.removed) changed.add(o.countryCode);
     }
+    perInstitution = Math.max(perInstitution, Math.ceil((budget.spent() - before) / batch.length));
     await budget.save();
     log(`Batch done: ${totals.institutions} institutions, +${totals.inserted} new, ${totals.updated} updated, ${totals.removed} removed`);
   }
 
-  if (budget.remaining() <= opts.batchSize * 150) log("Daily D1 write budget reached; continuing in the next run.");
+  if (hitLimit) return { importedCountries: imported, ...totals, snapshots: [], writesToday: budget.used };
+  if (budget.remaining() <= reserve()) log("Daily D1 write budget reached; continuing in the next run.");
   await db.query(
     `UPDATE institution_queue SET status = 'pending' WHERE status = 'running' AND claimed_at >= ?`,
     [sqlTimestamp(started)],

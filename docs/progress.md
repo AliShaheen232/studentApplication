@@ -40,4 +40,5 @@
   - Discover and catalogue in the Worker; live crawler on GitHub Actions with a 30-day search cache; 117 tests passing.
   - Bulk catalogue for Europe and 13 more countries, refreshed every 30 days; 128 tests passing.
   - Destination countries limited to the 58 popular countries (max 10 in profile); 128 tests passing.
+  - Crawler write budget now meters real D1 rows_written (60,000/day); 129 tests passing.
   - Next: documents on R2, the matcher on the new profile fields, then the outbox that sends university emails.

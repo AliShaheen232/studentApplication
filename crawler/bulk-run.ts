@@ -21,7 +21,7 @@ const db = d1Rest({
 
 const summary = await runBulk(db, new PoliteFetcher(), {
   countries: targetCountries(process.env.CRAWL_COUNTRIES),
-  writeLimitPerDay: Number(env("D1_WRITE_BUDGET_PER_DAY", "80000")),
+  writeLimitPerDay: Number(env("D1_WRITE_BUDGET_PER_DAY", "60000")),
   timeBudgetMs: Number(env("BULK_TIME_BUDGET_MIN", "45")) * 60_000,
   batchSize: Number(env("BULK_BATCH_SIZE", "16")),
   concurrency: Number(env("CRAWL_CONCURRENCY", "8")),

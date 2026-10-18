@@ -34,7 +34,7 @@ jobs:
         run: node --experimental-strip-types --no-warnings crawler/bulk-run.ts
         env:
           BULK_TIME_BUDGET_MIN: "40"
-          D1_WRITE_BUDGET_PER_DAY: "80000"
+          D1_WRITE_BUDGET_PER_DAY: "60000"
       - name: Upload country snapshots to R2
         if: always()
         run: |

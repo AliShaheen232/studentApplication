@@ -85,7 +85,7 @@ All of Europe (AL AD AT BA BE BG BY CH CY CZ DE DK EE ES FI FR GB GR HR HU IE IS
 3. Subjects: every programme title is tagged with all matching subjects (`classifySubjects`), with keywords in English, German, French, Spanish, Italian, Dutch, Nordic languages, Chinese, Russian, Japanese, Korean and Turkish. Untagged titles get "Other". Generic headings like "Master's programmes" are dropped.
 4. Writes only what changed: new programmes are inserted, changed ones updated, unchanged ones not touched. Programmes no longer found are marked `removed_at` (hidden in search), but only when the site was reached and still listed programmes, so an outage never wipes data.
 5. Refresh: a crawled institution is due again after 30 to 33 days (spread so not all come due on one day). A site that cannot be reached is retried the next day, then monthly after 3 failures.
-6. Budget: D1 free plan allows 100,000 row writes a day. The crawler stops at `D1_WRITE_BUDGET_PER_DAY` (80,000) per UTC day, tracked in `crawl_budget`, leaving room for the app. The first full load therefore takes about 10 days; countries become searchable as they fill.
+6. Budget: D1 free plan allows 100,000 row writes a day. The crawler stops at `D1_WRITE_BUDGET_PER_DAY` (60,000) per UTC day, tracked in `crawl_budget`, leaving room for the app. It counts the real `rows_written` D1 reports (index updates included), not the number of statements, and stops early when the next batch might not fit. If D1 still refuses writes, the run stops cleanly and resumes after the reset (00:00 UTC). The first full load therefore takes about 2 to 3 weeks; countries become searchable as they fill.
 7. Snapshots: at most once a day per changed country, `crawler/output/snapshots/<CC>.json.gz` (universities and programmes, no contacts) is written and uploaded to the R2 bucket `admitpath-catalog` under `snapshots/`. Also kept 14 days as a workflow artifact.
 
 ### App side
@@ -105,10 +105,10 @@ All of Europe (AL AD AT BA BE BG BY CH CY CZ DE DK EE ES FI FR GB GR HR HU IE IS
 5. Optional local run: `npm run crawl:bulk` with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` set in the shell.
 
 ### Config
-`CRAWL_COUNTRIES`, `D1_WRITE_BUDGET_PER_DAY` (80000), `BULK_TIME_BUDGET_MIN` (40), `BULK_BATCH_SIZE` (16), `CRAWL_CONCURRENCY` (8), `BULK_MAX_PAGES` (25), `BULK_MAX_PROGRAMS` (300).
+`CRAWL_COUNTRIES`, `D1_WRITE_BUDGET_PER_DAY` (60000), `BULK_TIME_BUDGET_MIN` (40), `BULK_BATCH_SIZE` (16), `CRAWL_CONCURRENCY` (8), `BULK_MAX_PAGES` (25), `BULK_MAX_PROGRAMS` (300).
 
 ### Tests
-`tests/crawler/bulk.test.ts`: multilingual subjects and degree levels, generic heading filter, country list, import and seeded-university reuse, 30-day re-import, claim order, change-only writes, removal marking, outage protection with next-day retry, write budget stop, gzipped snapshot without contacts. Worker: instant answer with coverage, coverage list, removed programmes hidden (`tests/worker/catalog.test.ts`).
+`tests/crawler/bulk.test.ts`: multilingual subjects and degree levels, generic heading filter, country list, import and seeded-university reuse, 30-day re-import, claim order, change-only writes, removal marking, outage protection with next-day retry, write budget stop, real rows_written metering, clean stop when D1 refuses writes, gzipped snapshot without contacts. Worker: instant answer with coverage, coverage list, removed programmes hidden (`tests/worker/catalog.test.ts`).
 
 ### Unverified
 - Not yet run against the live Wikidata endpoint or real university sites from this build machine. Watch the first workflow runs: the log prints "Imported N institutions for <country>" and "Batch done: ...".

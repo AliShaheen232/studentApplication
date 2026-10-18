@@ -24,17 +24,20 @@ function sqliteDb(): { db: Db; raw: DatabaseSync; writes: () => number } {
   raw.exec("PRAGMA foreign_keys = ON;");
   for (const f of readdirSync(MIGRATIONS).filter((x) => x.endsWith(".sql")).sort()) raw.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   let writes = 0;
+  let rows = 0;
   const db: Db = {
+    rowsWritten: () => rows,
     async query(sql, params = []) {
       const stmt = raw.prepare(sql);
       if (/^\s*select/i.test(sql)) return { results: stmt.all(...(params as never[])) as never[], changes: 0 };
       const info = stmt.run(...(params as never[]));
+      rows += Number(info.changes);
       return { results: [], changes: Number(info.changes) };
     },
     async batch(statements) {
       raw.exec("BEGIN");
       try {
-        for (const s of statements) raw.prepare(s.sql).run(...((s.params ?? []) as never[]));
+        for (const s of statements) rows += Number(raw.prepare(s.sql).run(...((s.params ?? []) as never[])).changes);
         raw.exec("COMMIT");
         writes += statements.length;
       } catch (e) {
@@ -227,5 +230,29 @@ describe("bulk pipeline", () => {
     });
     assert.equal(capped.institutions, 0);
     assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM institution_queue WHERE status = 'running'").get()!.n, 0);
+  });
+
+  test("budget counts real rows written and stops cleanly when D1 refuses writes", async () => {
+    const { db, raw } = sqliteDb();
+    const budget = new WriteBudget(db, NOW, 80000);
+    await budget.load();
+    await importCountries(db, budget, ["DE"], async () => [UNI_A, UNI_B], NOW);
+    assert.ok(budget.used >= 4);
+    assert.ok(budget.spent() <= 1);
+
+    const fetchImpl = site({ ...ALPHA_V1, "https://beta.de/": `<a href="/p">Data Science (M.Sc.)</a>` });
+    const refusing: typeof db = {
+      ...db,
+      async batch() {
+        throw new Error("D1 query failed: Exceeded daily rows written limit");
+      },
+    };
+    const summary = await runBulk(refusing, new PoliteFetcher({ ...noSleep, fetchImpl }), {
+      countries: ["DE"], writeLimitPerDay: 80000, timeBudgetMs: 60_000, batchSize: 2, concurrency: 2, maxPages: 10, maxPrograms: 300,
+      outputDir: mkdtempSync(join(tmpdir(), "bulk-")), now: () => NOW, institutions: async () => [UNI_A, UNI_B],
+    });
+    assert.equal(summary.institutions, 0);
+    assert.equal(summary.snapshots.length, 0);
+    assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM programs WHERE university_id LIKE 'univ_%' AND source_type = 'official_website'").get()!.n, 0);
   });
 });

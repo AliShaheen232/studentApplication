@@ -2,6 +2,15 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.9.1] - 2026-10-18
+
+### Crawler write budget fix
+
+- The bulk crawler counted SQL statements instead of the rows D1 bills (each insert also writes index rows), so it used about 87% of the free 100,000 daily writes. It now meters the real `rows_written` from D1 responses.
+- Daily budget lowered to 60,000 and the stop margin adapts to the measured rows per university.
+- If D1 refuses writes the run stops cleanly instead of failing.
+- Migration `0009_drop_duplicate_indexes.sql` drops two duplicate indexes on `universities`.
+
 ## [1.9.0] - 2026-10-18
 
 ### Destination countries limited to popular countries
