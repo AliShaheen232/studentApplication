@@ -1,4 +1,5 @@
-import { FIELDS_OF_STUDY, GLOBAL_COUNTRIES } from "../../core/discoveryData.ts";
+import { DESTINATION_COUNTRIES, MAX_DESTINATIONS } from "../../core/destinations.ts";
+import { FIELDS_OF_STUDY } from "../../core/discoveryData.ts";
 
 export const DEGREE_LEVELS = ["High school", "Diploma", "Bachelor", "Master", "PhD"] as const;
 export const TARGET_LEVELS = ["Bachelor", "Master", "PhD", "MBA"] as const;
@@ -10,7 +11,7 @@ export const FUNDING = ["self", "partial", "full_scholarship"] as const;
 export const MAX_SUBJECTS = 7;
 
 const SUBJECTS = new Set(FIELDS_OF_STUDY.map((f) => f.name));
-const DESTINATIONS = new Set(GLOBAL_COUNTRIES.map((c) => c.name));
+const DESTINATIONS = new Set(DESTINATION_COUNTRIES.map((c) => c.name));
 
 const SCORE_RANGES: Record<string, { field: string; min: number; max: number; step?: number }> = {
   ielts: { field: "ielts_score", min: 0, max: 9, step: 0.5 },
@@ -142,7 +143,7 @@ export function validateProfile(input: Input, now = new Date()): { values: Profi
 
   const countries = list(input, "countries");
   if (!countries.length) errors.countries = "Pick at least one country.";
-  else if (countries.length > 10) errors.countries = "Pick at most 10 countries.";
+  else if (countries.length > MAX_DESTINATIONS) errors.countries = `Pick at most ${MAX_DESTINATIONS} countries.`;
   else if (countries.some((c) => !DESTINATIONS.has(c))) errors.countries = "Pick countries from the list.";
 
   const intake_term = text(input, "intake_term", 20);

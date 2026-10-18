@@ -87,6 +87,10 @@ describe("profile validation", () => {
   test("subjects and countries must come from the lists", () => {
     assert.ok(validateProfile({ ...GOOD_PROFILE, subjects: ["Basket weaving"] }, now).errors.subjects);
     assert.ok(validateProfile({ ...GOOD_PROFILE, countries: ["Atlantis"] }, now).errors.countries);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, countries: ["India"] }, now).errors.countries);
+    const ten = ["Germany", "Netherlands", "Serbia", "Russia", "Pakistan", "Japan", "Canada", "Ukraine", "Turkey", "Australia"];
+    assert.equal(validateProfile({ ...GOOD_PROFILE, countries: ten }, now).errors.countries, undefined);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, countries: [...ten, "France"] }, now).errors.countries);
     assert.ok(validateProfile({ ...GOOD_PROFILE, subjects: [] }, now).errors.subjects);
     const seven = ["Computer Science", "Artificial Intelligence", "Data Science", "Software Engineering", "Information Technology", "Engineering", "Finance"];
     assert.equal(validateProfile({ ...GOOD_PROFILE, subjects: seven }, now).errors.subjects, undefined);

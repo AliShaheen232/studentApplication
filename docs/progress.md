@@ -39,4 +39,5 @@
   - Google sign-up/sign-in and 4-step onboarding profile done; 80 Worker tests passing.
   - Discover and catalogue in the Worker; live crawler on GitHub Actions with a 30-day search cache; 117 tests passing.
   - Bulk catalogue for Europe and 13 more countries, refreshed every 30 days; 128 tests passing.
+  - Destination countries limited to the 58 popular countries (max 10 in profile); 128 tests passing.
   - Next: documents on R2, the matcher on the new profile fields, then the outbox that sends university emails.

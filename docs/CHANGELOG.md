@@ -2,6 +2,14 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.9.0] - 2026-10-18
+
+### Destination countries limited to popular countries
+
+- New `core/destinations.ts`: 58 destination countries (all of Europe plus RU, TR, CN, MY, SG, AU, CA, US, KR, ZA, JP, AE, PK). Single source for Discover, onboarding, profile validation, search country lookup, `/api/discovery/countries` and the bulk crawler.
+- Onboarding lets students pick up to 10 destination countries; the server rejects others.
+- Discover dropdown shows only destination countries ("Search destination countries...").
+
 ## [1.8.0] - 2026-10-18
 
 ### Bulk catalogue of all institutions in the target countries

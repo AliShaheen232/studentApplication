@@ -5,6 +5,8 @@ export {
   normalizeLevel
 } from '../../core/discoveryData';
 
+export { DESTINATION_COUNTRIES, DESTINATION_CODES, MAX_DESTINATIONS } from '../../core/destinations';
+
 export type {
   CountryInfo,
   FieldCategory

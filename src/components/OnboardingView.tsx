@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, GraduationCap, Globe, Languages, RotateCw, UserRound } from "lucide-react";
 import BrandIcon from "./BrandIcon";
-import { FIELDS_OF_STUDY, GLOBAL_COUNTRIES } from "../data/countries";
+import { DESTINATION_COUNTRIES, FIELDS_OF_STUDY, MAX_DESTINATIONS } from "../data/countries";
 
 const ISO_CODES =
   "AF AX AL DZ AS AD AO AI AG AR AM AW AU AT AZ BS BH BD BB BY BE BZ BJ BM BT BO BA BW BR BN BG BF BI CV KH CM CA KY CF TD CL CN CO KM CG CD CR CI HR CU CW CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GF PF GA GM GE DE GH GR GL GD GP GU GT GN GW GY HT HN HK HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI XK KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MQ MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NC NZ NI NE NG MK NO OM PK PW PS PA PG PY PE PH PL PT PR QA RE RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA KR SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW";
@@ -405,15 +405,15 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
                 {err("subjects")}
               </div>
               <div>
-                {label("Countries you would study in (up to 10)")}
+                {label(`Destination countries (up to ${MAX_DESTINATIONS})`)}
                 <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-1 -m-1">
-                  {GLOBAL_COUNTRIES.map((c) => {
+                  {DESTINATION_COUNTRIES.map((c) => {
                     const on = (form.countries as string[]).includes(c.name);
                     return (
                       <button
                         key={c.code}
                         type="button"
-                        onClick={() => toggle("countries", c.name, 10)}
+                        onClick={() => toggle("countries", c.name, MAX_DESTINATIONS)}
                         className={`px-2.5 py-1 rounded-md text-xs border transition ${
                           on ? "bg-emerald-50 border-[#047857] text-emerald-900 font-medium" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
                         }`}

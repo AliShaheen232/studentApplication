@@ -21,7 +21,7 @@ Every field feeds either program matching or the email composer. Nothing is coll
 | | current_institution, graduation_year | no | email intro |
 | | gpa, max_gpa (4, 5, 10, 20, 100) | yes | minimum-grade checks, normalised to a percentage |
 | Your goals | target_level (Bachelor, Master, PhD, MBA) | yes | level filter in the matcher |
-| | subjects (1-7, from the subject list) | yes | subject fit |
+| | subjects (1-5, from the subject list) | yes | subject fit |
 | | countries (1-10, from the destination list) | yes | country filter |
 | | intake_term (next 10 terms) | yes | deadline check |
 | | budget_max + currency | yes | tuition filter (0 = free or funded only) |
@@ -38,7 +38,7 @@ Every field feeds either program matching or the email composer. Nothing is coll
 ## Validation (server, `worker/lib/profile.ts`)
 - Required fields above; per-field messages returned as `{ fields: { name: message } }` with HTTP 400. The form jumps to the first step with an error.
 - GPA between 0 and the chosen scale. English score range per test: IELTS 0-9 in 0.5 steps, TOEFL 0-120, PTE 10-90, Duolingo 10-160. Scores for other tests are dropped.
-- Subjects must come from `FIELDS_OF_STUDY`, countries from `GLOBAL_COUNTRIES` (`core/discoveryData.ts`).
+- Subjects must come from `FIELDS_OF_STUDY`, countries from `DESTINATION_COUNTRIES` (`core/destinations.ts`, 58 popular destinations: all of Europe plus Russia, Turkey, China, Malaysia, Singapore, Australia, Canada, USA, South Korea, South Africa, Japan, UAE, Pakistan). Max 10 (`MAX_DESTINATIONS`).
 - Intake must be `Spring|Summer|Fall|Winter YYYY` within the next 4 years. LinkedIn must be an https link. Text is trimmed and length-capped.
 
 ## Files

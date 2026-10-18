@@ -22,7 +22,7 @@ import {
   Info,
   X
 } from 'lucide-react';
-import { GLOBAL_COUNTRIES, CountryInfo, FIELDS_OF_STUDY, FieldCategory } from '../data/countries';
+import { DESTINATION_COUNTRIES, CountryInfo, FIELDS_OF_STUDY, FieldCategory } from '../data/countries';
 
 export interface DiscoveredProgram {
   id: string;
@@ -111,7 +111,7 @@ export default function DiscoverView({
 
   // Active Country details
   const activeCountry = useMemo(() => {
-    return GLOBAL_COUNTRIES.find((c) => c.code === selectedCountryCode) || GLOBAL_COUNTRIES[0];
+    return DESTINATION_COUNTRIES.find((c) => c.code === selectedCountryCode) || DESTINATION_COUNTRIES.find((c) => c.code === 'DE') || DESTINATION_COUNTRIES[0];
   }, [selectedCountryCode]);
 
   // Active Field details
@@ -121,9 +121,9 @@ export default function DiscoverView({
 
   // Filtered countries for selector modal/dropdown
   const filteredCountryOptions = useMemo(() => {
-    if (!countrySearchQuery.trim()) return GLOBAL_COUNTRIES;
+    if (!countrySearchQuery.trim()) return DESTINATION_COUNTRIES;
     const q = countrySearchQuery.toLowerCase();
-    return GLOBAL_COUNTRIES.filter(
+    return DESTINATION_COUNTRIES.filter(
       (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || c.code3.toLowerCase().includes(q)
     );
   }, [countrySearchQuery]);
@@ -321,7 +321,7 @@ export default function DiscoverView({
           <div className="relative">
             <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
               <span>1. Destination Country</span>
-              <span className="text-[10px] text-slate-400 font-normal">190+ ISO Countries</span>
+              <span className="text-[10px] text-slate-400 font-normal">{DESTINATION_COUNTRIES.length} destination countries</span>
             </label>
 
             <button
@@ -346,7 +346,7 @@ export default function DiscoverView({
                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search 190+ countries or ISO codes..."
+                    placeholder="Search destination countries..."
                     value={countrySearchQuery}
                     onChange={(e) => setCountrySearchQuery(e.target.value)}
                     className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600"

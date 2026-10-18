@@ -1,5 +1,6 @@
 import type { Router } from "../router.ts";
-import { FIELDS_OF_STUDY, GLOBAL_COUNTRIES } from "../../core/discoveryData.ts";
+import { DESTINATION_COUNTRIES } from "../../core/destinations.ts";
+import { FIELDS_OF_STUDY } from "../../core/discoveryData.ts";
 import { clock, sqlTimestamp } from "../lib/clock.ts";
 import { randomHex } from "../lib/crypto.ts";
 import { error, json, readJson } from "../lib/http.ts";
@@ -202,7 +203,7 @@ export function registerCatalogRoutes(router: Router): void {
     return json(results);
   });
 
-  router.get("/api/discovery/countries", () => json(GLOBAL_COUNTRIES));
+  router.get("/api/discovery/countries", () => json(DESTINATION_COUNTRIES));
   router.get("/api/discovery/fields", () => json(FIELDS_OF_STUDY));
 
   router.get("/api/discovery/results", async (c) => {

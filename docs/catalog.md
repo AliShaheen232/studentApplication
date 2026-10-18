@@ -6,6 +6,7 @@
   - `GET /api/universities`, `GET /api/universities/:id`, `GET /api/programs`, `GET /api/programs/:id` (public; contacts only included when signed in).
   - `GET /api/contacts` (sign-in required).
   - `GET /api/discovery/countries`, `GET /api/discovery/fields`, `GET /api/discovery/results`.
+  - `/api/discovery/countries` returns only the 58 destination countries from `core/destinations.ts`. The same list drives the Discover dropdown, onboarding chips, search country lookup and the bulk crawler's default countries. Other countries are rejected by search.
   - `POST /api/discovery/jobs`, `GET /api/discovery/jobs`, `GET /api/discovery/jobs/:id` (sign-in, CSRF, per student).
 
 ## How it works
