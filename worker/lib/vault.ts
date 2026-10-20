@@ -34,6 +34,23 @@ export async function encryptSecret(keySecret: unknown, plaintext: string): Prom
   return `v1:${b64encode(packed)}`;
 }
 
+export async function encryptBytes(keySecret: unknown, data: ArrayBuffer): Promise<Uint8Array> {
+  const key = await importKey(keySecret);
+  const iv = new Uint8Array(12);
+  crypto.getRandomValues(iv);
+  const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data));
+  const packed = new Uint8Array(iv.length + sealed.length);
+  packed.set(iv);
+  packed.set(sealed, iv.length);
+  return packed;
+}
+
+export async function decryptBytes(keySecret: unknown, packed: ArrayBuffer): Promise<ArrayBuffer> {
+  const key = await importKey(keySecret);
+  const bytes = new Uint8Array(packed);
+  return crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes.slice(0, 12) }, key, bytes.slice(12));
+}
+
 export async function decryptSecret(keySecret: unknown, value: string): Promise<string> {
   if (!value.startsWith("v1:")) throw new Error("Unknown token format.");
   const key = await importKey(keySecret);

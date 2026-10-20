@@ -38,7 +38,7 @@ Every field feeds either program matching or the email composer. Nothing is coll
 ## Validation (server, `worker/lib/profile.ts`)
 - Required fields above; per-field messages returned as `{ fields: { name: message } }` with HTTP 400. The form jumps to the first step with an error.
 - GPA between 0 and the chosen scale. English score range per test: IELTS 0-9 in 0.5 steps, TOEFL 0-120, PTE 10-90, Duolingo 10-160. Scores for other tests are dropped.
-- Subjects must come from `FIELDS_OF_STUDY`, countries from `DESTINATION_COUNTRIES` (`core/destinations.ts`, 58 popular destinations: all of Europe plus Russia, Turkey, China, Malaysia, Singapore, Australia, Canada, USA, South Korea, South Africa, Japan, UAE, Pakistan). Max 10 (`MAX_DESTINATIONS`).
+- Subjects must come from `FIELDS_OF_STUDY`, countries from `DESTINATION_COUNTRIES` (`core/destinations.ts`, 50 popular destinations: most of Europe plus Russia, Turkey, China, Malaysia, Singapore, Australia, Canada, USA, South Korea, South Africa, Japan, UAE, Georgia, Azerbaijan, Kyrgyzstan, Uzbekistan, Tajikistan; small states and Albania, Bulgaria, France, Kosovo, Moldova, Montenegro, North Macedonia, Pakistan are left out). Max 10 (`MAX_DESTINATIONS`).
 - Intake must be `Spring|Summer|Fall|Winter YYYY` within the next 4 years. LinkedIn must be an https link. Text is trimmed and length-capped.
 
 ## Files
@@ -57,3 +57,9 @@ Every field feeds either program matching or the email composer. Nothing is coll
 
 ## Unverified
 - Not yet clicked through in a browser against the live D1.
+
+Graduation month (`graduation_month`, optional) and field of work experience (`work_field`) are asked in onboarding (migration `0012`). Email drafts state only education and work history the student entered; target subjects are never described as the student's background.
+
+Full academic history: onboarding step 2 has an "Earlier education" list (`education_history`, JSON, max 8 rows: level, subject, institution, year, grade; migration `0013`). It is pre-filled with the levels below the chosen highest degree (a Master starts with School (Matric), College (Intermediate) and Bachelor rows; O-Level and A-Level are separate choices) and the student fills in or removes rows.
+
+Work experience: `work_experience_years` is the total; `work_history` (JSON, max 5, migration `0014`) lists each field with job title, start month and end month (empty end means still working there). In onboarding the total fills in from the rows (overlaps counted once) until the student types their own number. Email drafts list the years per field.

@@ -8,6 +8,8 @@ import { registerGoogleLoginRoutes } from "./routes/googleLogin.ts";
 import { registerProfileRoutes } from "./routes/profile.ts";
 import { registerCatalogRoutes } from "./routes/catalog.ts";
 import { registerLiveRoutes } from "./routes/live.ts";
+import { registerComposeRoutes } from "./routes/compose.ts";
+import { registerDocumentRoutes } from "./routes/documents.ts";
 
 export function buildRouter(): Router {
   const router = new Router();
@@ -30,6 +32,8 @@ export function buildRouter(): Router {
   registerProfileRoutes(router);
   registerCatalogRoutes(router);
   registerLiveRoutes(router);
+  registerComposeRoutes(router);
+  registerDocumentRoutes(router);
   return router;
 }
 

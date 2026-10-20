@@ -17,6 +17,77 @@ const DEGREE_LEVELS = ["High school", "Diploma", "Bachelor", "Master", "PhD"];
 const TARGET_LEVELS = ["Bachelor", "Master", "PhD", "MBA"];
 const GPA_SCALES = [4, 5, 10, 20, 100];
 const MAX_SUBJECTS = 7;
+const HISTORY_LEVELS = ["School (Matric)", "School (O-Level)", "College (Intermediate)", "College (A-Level)", "Diploma / Certificate", "ADP", "Bachelor (2 Years)", "BS (Hons.)", "BS (Lateral)", "Post Graduate", "Master", "MS", "MPhil", "PhD"];
+const LEGACY_LEVELS: Record<string, string> = { "School (Matric / O-level)": "School (Matric)", "College (Intermediate / A-level)": "College (Intermediate)", "Diploma / ADP": "ADP", "Bachelor / BS": "BS (Hons.)", "Master / MS / MPhil": "Master" };
+const MAX_HISTORY = 8;
+
+const MAX_WORK = 5;
+
+interface WorkRow {
+  field: string;
+  role: string;
+  start: string;
+  end: string;
+  current: boolean;
+}
+
+function parseWork(value: unknown): WorkRow[] {
+  let list: any = value;
+  if (typeof value === "string") {
+    try {
+      list = JSON.parse(value);
+    } catch {
+      list = [];
+    }
+  }
+  return Array.isArray(list) ? list.map((r: any) => ({ field: str(r.field), role: str(r.role), start: str(r.start), end: str(r.end), current: !r.end })) : [];
+}
+
+function workYears(rows: WorkRow[]): number {
+  const now = new Date();
+  const nowIdx = now.getFullYear() * 12 + now.getMonth();
+  const idx = (m: string) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1;
+  const spans = rows.filter((r) => /^\d{4}-\d{2}$/.test(r.start)).map((r) => [idx(r.start), r.current || !/^\d{4}-\d{2}$/.test(r.end) ? nowIdx : idx(r.end)] as [number, number]).sort((a, b) => a[0] - b[0]);
+  let months = 0;
+  let edge = -Infinity;
+  for (const [s, e] of spans) {
+    const from = Math.max(s, edge);
+    if (e > from) months += e - from;
+    edge = Math.max(edge, e);
+  }
+  return Math.round((months / 12) * 2) / 2;
+}
+
+interface HistoryRow {
+  level: string;
+  subject: string;
+  institution: string;
+  year: string;
+  grade: string;
+}
+
+function parseHistory(value: unknown): HistoryRow[] {
+  let list: any = value;
+  if (typeof value === "string") {
+    try {
+      list = JSON.parse(value);
+    } catch {
+      list = [];
+    }
+  }
+  return Array.isArray(list) ? list.map((r: any) => ({ level: LEGACY_LEVELS[str(r.level)] ?? str(r.level), subject: str(r.subject), institution: str(r.institution), year: str(r.year), grade: str(r.grade) })) : [];
+}
+
+function seedHistory(degree: string): HistoryRow[] {
+  const seed: Record<string, string[]> = {
+    "High school": ["School (Matric)"],
+    Diploma: ["School (Matric)"],
+    Bachelor: ["School (Matric)", "College (Intermediate)"],
+    Master: ["School (Matric)", "College (Intermediate)", "BS (Hons.)"],
+    PhD: ["School (Matric)", "College (Intermediate)", "BS (Hons.)", "Master"],
+  };
+  return (seed[degree] ?? []).map((level) => ({ level, subject: "", institution: "", year: "", grade: "" }));
+}
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD"];
 const GERMAN_LEVELS = [
   ["none", "None"],
@@ -45,12 +116,12 @@ const FUNDING = [
 
 const STEPS = [
   { title: "About you", icon: UserRound, fields: ["full_name", "nationality", "country_of_residence", "linkedin_url"] },
-  { title: "Education", icon: GraduationCap, fields: ["current_degree_level", "field_of_study", "current_institution", "graduation_year", "max_gpa", "gpa"] },
+  { title: "Education", icon: GraduationCap, fields: ["current_degree_level", "education_history", "field_of_study", "current_institution", "graduation_year", "graduation_month", "max_gpa", "gpa"] },
   { title: "Your goals", icon: Globe, fields: ["target_level", "subjects", "countries", "intake_term", "budget_max", "currency", "funding"] },
   {
     title: "Languages & experience",
     icon: Languages,
-    fields: ["english_test", "ielts_score", "toefl_score", "pte_score", "duolingo_score", "german_level", "work_experience_years", "research_interests", "experience", "academic_achievements", "preferred_universities", "additional_preferences"],
+    fields: ["english_test", "ielts_score", "toefl_score", "pte_score", "duolingo_score", "german_level", "work_experience_years", "work_history", "research_interests", "experience", "academic_achievements", "preferred_universities", "additional_preferences"],
   },
 ];
 
@@ -91,6 +162,7 @@ function initialForm(profile: any): Form {
     field_of_study: str(p.field_of_study),
     current_institution: str(p.current_institution),
     graduation_year: str(p.graduation_year),
+    graduation_month: str(p.graduation_month),
     max_gpa: str(p.max_gpa || 4),
     gpa: str(p.gpa),
     target_level: str(p.target_level),
@@ -107,6 +179,7 @@ function initialForm(profile: any): Form {
     duolingo_score: str(p.duolingo_score),
     german_level: str(p.german_level),
     work_experience_years: str(p.work_experience_years),
+    work_field: str(p.work_field),
     research_interests: str(p.research_interests),
     experience: str(p.experience),
     academic_achievements: str(p.academic_achievements),
@@ -157,6 +230,10 @@ interface OnboardingViewProps {
 
 export default function OnboardingView({ profile, mode, onSaved, onCancel }: OnboardingViewProps) {
   const [form, setForm] = useState<Form>(() => initialForm(profile));
+  const [history, setHistory] = useState<HistoryRow[]>(() => parseHistory(profile?.education_history));
+  const [historyTouched, setHistoryTouched] = useState(() => parseHistory(profile?.education_history).length > 0);
+  const [work, setWork] = useState<WorkRow[]>(() => parseWork(profile?.work_history));
+  const [totalTouched, setTotalTouched] = useState(() => !!profile?.work_experience_years);
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -164,7 +241,19 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
   const intakes = useMemo(intakeOptions, []);
   const englishTest = ENGLISH_TESTS.find((t) => t[0] === form.english_test);
 
+  const changeHistory = (rows: HistoryRow[]) => {
+    setHistory(rows);
+    setHistoryTouched(true);
+  };
+  const changeWork = (rows: WorkRow[]) => {
+    setWork(rows);
+    if (!totalTouched) setForm((prev) => ({ ...prev, work_experience_years: String(workYears(rows) || "") }));
+  };
+  const patchWork = (i: number, patch: Partial<WorkRow>) => changeWork(work.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const patchRow = (i: number, key: keyof HistoryRow, value: string) => changeHistory(history.map((r, j) => (j === i ? { ...r, [key]: value } : r)));
+
   const set = (key: string, value: string | string[]) => {
+    if (key === "current_degree_level" && !historyTouched) setHistory(seedHistory(String(value)));
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => {
       if (!prev[key]) return prev;
@@ -193,8 +282,8 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
     setSaving(true);
     setServerError(null);
     try {
-      const payload: Record<string, unknown> = { ...form };
-      for (const key of ["graduation_year", "gpa", "max_gpa", "budget_max", "ielts_score", "toefl_score", "pte_score", "duolingo_score", "work_experience_years"]) {
+      const payload: Record<string, unknown> = { ...form, work_history: work.filter((w) => w.field.trim()).map((w) => ({ field: w.field, role: w.role, start: w.start, end: w.current ? null : w.end || null })), education_history: history.filter((r) => r.level).map((r) => ({ ...r, year: r.year === "" ? null : Number(r.year) })) };
+      for (const key of ["graduation_year", "graduation_month", "gpa", "max_gpa", "budget_max", "ielts_score", "toefl_score", "pte_score", "duolingo_score", "work_experience_years"]) {
         payload[key] = form[key] === "" ? null : Number(form[key]);
       }
       const res = await fetch("/api/profile", {
@@ -353,9 +442,14 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
                   {textInput("current_institution", "University of Siegen")}
                 </div>
                 <div>
-                  {label("Graduation year", true)}
+                  {label("Graduation year (or expected)", true)}
                   {textInput("graduation_year", "2025", "number")}
                   {err("graduation_year")}
+                </div>
+                <div>
+                  {label("Graduation month", true)}
+                  {select("graduation_month", ["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => [String(i + 1), m] as [string, string]), "Choose")}
+                  {err("graduation_month")}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -371,6 +465,39 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
                     {err("max_gpa")}
                   </div>
                 </div>
+              </div>
+              <div className="pt-2 border-t border-slate-100">
+                {label("Earlier education", true)}
+                <p className="text-[11px] text-slate-400 mb-3">Add every level you finished before your highest degree, for example Matric or O-level, Intermediate or A-level, ADP, Bachelor.</p>
+                <div className="space-y-3">
+                  {history.map((row, i) => (
+                    <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <select value={row.level} onChange={(e) => patchRow(i, "level", e.target.value)} className={inputCls("education_history")}>
+                        <option value="">Level</option>
+                        {HISTORY_LEVELS.map((l) => (
+                          <option key={l} value={l}>
+                            {l}
+                          </option>
+                        ))}
+                      </select>
+                      <input value={row.subject} onChange={(e) => patchRow(i, "subject", e.target.value)} placeholder="Subject or group, e.g. Pre-Engineering" className={inputCls("education_history")} />
+                      <input value={row.institution} onChange={(e) => patchRow(i, "institution", e.target.value)} placeholder="School, college or university" className={inputCls("education_history")} />
+                      <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                        <input type="number" value={row.year} onChange={(e) => patchRow(i, "year", e.target.value)} placeholder="Year" className={inputCls("education_history")} />
+                        <input value={row.grade} onChange={(e) => patchRow(i, "grade", e.target.value)} placeholder="Grade, e.g. 78%" className={inputCls("education_history")} />
+                        <button type="button" onClick={() => changeHistory(history.filter((_, j) => j !== i))} aria-label="Remove" className="px-2 text-xs text-slate-400 hover:text-rose-600 cursor-pointer">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {err("education_history")}
+                {history.length < MAX_HISTORY && (
+                  <button type="button" onClick={() => changeHistory([...history, { level: "", subject: "", institution: "", year: "", grade: "" }])} className="mt-3 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
+                    + Add education
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -483,9 +610,42 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
                   {select("german_level", GERMAN_LEVELS as [string, string][], "Choose")}
                 </div>
                 <div>
-                  {label("Work experience in years", true)}
-                  {textInput("work_experience_years", "0", "number")}
+                  {label("Total professional experience (years)", true)}
+                  <input type="number" step="0.5" min="0" value={form.work_experience_years as string} onChange={(e) => { setTotalTouched(true); set("work_experience_years", e.target.value); }} placeholder="0" className={inputCls("work_experience_years")} />
                   {err("work_experience_years")}
+                </div>
+                <div className="sm:col-span-2">
+                  {label("Experience by field", true)}
+                  <p className="text-[11px] text-slate-400 mb-2">Add each field you worked in, for example Sales, Project Management, Logistics. Your total above fills in from these.</p>
+                  <div className="space-y-3">
+                    {work.map((row, i) => (
+                      <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input value={row.field} onChange={(e) => patchWork(i, { field: e.target.value })} placeholder="Field, e.g. Sales" className={inputCls("work_history")} />
+                        <input value={row.role} onChange={(e) => patchWork(i, { role: e.target.value })} placeholder="Job title (optional)" className={inputCls("work_history")} />
+                        <div>
+                          <span className="block text-[11px] text-slate-500 mb-1">From</span>
+                          <input type="month" value={row.start} onChange={(e) => patchWork(i, { start: e.target.value })} className={inputCls("work_history")} />
+                        </div>
+                        <div>
+                          <span className="block text-[11px] text-slate-500 mb-1">To</span>
+                          <input type="month" value={row.end} disabled={row.current} onChange={(e) => patchWork(i, { end: e.target.value })} className={`${inputCls("work_history")} disabled:bg-slate-100`} />
+                        </div>
+                        <label className="flex items-center gap-2 text-xs text-slate-700">
+                          <input type="checkbox" checked={row.current} onChange={(e) => patchWork(i, { current: e.target.checked, end: e.target.checked ? "" : row.end })} />
+                          I still work in this field
+                        </label>
+                        <button type="button" onClick={() => changeWork(work.filter((_, j) => j !== i))} className="justify-self-start sm:justify-self-end text-xs text-slate-400 hover:text-rose-600 cursor-pointer">
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {err("work_history")}
+                  {work.length < MAX_WORK && (
+                    <button type="button" onClick={() => changeWork([...work, { field: "", role: "", start: "", end: "", current: false }])} className="mt-3 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
+                      + Add field
+                    </button>
+                  )}
                 </div>
               </div>
               <div>

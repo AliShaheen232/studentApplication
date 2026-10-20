@@ -24,7 +24,7 @@ describe("catalog and discovery", () => {
   test("countries and fields lists", async () => {
     const countries = await student.request("GET", "/api/discovery/countries");
     assert.ok(countries.data.some((c: { name: string }) => c.name === "Germany"));
-    assert.equal(countries.data.length, 58);
+    assert.equal(countries.data.length, 50);
     assert.ok(countries.data.some((c: { code: string }) => c.code === "RS"));
     assert.ok(!countries.data.some((c: { code: string }) => c.code === "IN"));
     const fields = await student.request("GET", "/api/discovery/fields");

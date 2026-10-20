@@ -9,6 +9,31 @@ export const GERMAN_LEVELS = ["none", "A1", "A2", "B1", "B2", "C1", "C2", "nativ
 export const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD"] as const;
 export const FUNDING = ["self", "partial", "full_scholarship"] as const;
 export const MAX_SUBJECTS = 7;
+export const HISTORY_LEVELS = [
+  "School (Matric)",
+  "School (O-Level)",
+  "College (Intermediate)",
+  "College (A-Level)",
+  "Diploma / Certificate",
+  "ADP",
+  "Bachelor (2 Years)",
+  "BS (Hons.)",
+  "BS (Lateral)",
+  "Post Graduate",
+  "Master",
+  "MS",
+  "MPhil",
+  "PhD",
+] as const;
+export const MAX_HISTORY = 8;
+const LEGACY_LEVELS: Record<string, string> = {
+  "School (Matric / O-level)": "School (Matric)",
+  "College (Intermediate / A-level)": "College (Intermediate)",
+  "Diploma / ADP": "ADP",
+  "Bachelor / BS": "BS (Hons.)",
+  "Master / MS / MPhil": "Master",
+};
+export const MAX_WORK = 5;
 
 const SUBJECTS = new Set(FIELDS_OF_STUDY.map((f) => f.name));
 const DESTINATIONS = new Set(DESTINATION_COUNTRIES.map((c) => c.name));
@@ -29,6 +54,7 @@ export const PROFILE_COLUMNS = [
   "field_of_study",
   "current_institution",
   "graduation_year",
+  "graduation_month",
   "gpa",
   "max_gpa",
   "qualification",
@@ -46,6 +72,9 @@ export const PROFILE_COLUMNS = [
   "duolingo_score",
   "german_level",
   "work_experience_years",
+  "work_field",
+  "education_history",
+  "work_history",
   "research_interests",
   "experience",
   "academic_achievements",
@@ -127,6 +156,11 @@ export function validateProfile(input: Input, now = new Date()): { values: Profi
     errors.graduation_year = `Enter a year between 1970 and ${thisYear + 6}.`;
   }
 
+  const graduation_month = num(input, "graduation_month");
+  if (graduation_month !== null && (!Number.isInteger(graduation_month) || graduation_month < 1 || graduation_month > 12)) {
+    errors.graduation_month = "Choose a month.";
+  }
+
   const max_gpa = num(input, "max_gpa");
   if (!oneOf(GPA_SCALES, max_gpa)) errors.max_gpa = "Choose your grading scale.";
   const gpa = num(input, "gpa");
@@ -189,6 +223,50 @@ export function validateProfile(input: Input, now = new Date()): { values: Profi
   if (work_experience_years !== null && (Number.isNaN(work_experience_years) || work_experience_years < 0 || work_experience_years > 50)) {
     errors.work_experience_years = "Enter years between 0 and 50.";
   }
+  const work_field = text(input, "work_field", 120);
+
+  const rawWork = Array.isArray(input.work_history) ? input.work_history : [];
+  if (rawWork.length > MAX_WORK) errors.work_history = `Add at most ${MAX_WORK} fields.`;
+  const monthNow = `${thisYear}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+  const work: Record<string, string | null>[] = [];
+  for (const row of rawWork.slice(0, MAX_WORK)) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Input;
+    const field = text(r, "field", 80);
+    if (!field) continue;
+    const start = text(r, "start", 7);
+    const end = text(r, "end", 7);
+    if (!start || !MONTH.test(start) || start < "1970-01" || start > monthNow) {
+      errors.work_history = "Enter a valid start month for each field.";
+      continue;
+    }
+    if (end && (!MONTH.test(end) || end < start || end > monthNow)) {
+      errors.work_history = "The end month must be after the start month and not in the future. Leave it empty if you still work there.";
+      continue;
+    }
+    work.push({ field, role: text(r, "role", 80), start, end: end || null });
+  }
+
+  const rawHistory = Array.isArray(input.education_history) ? input.education_history : [];
+  if (rawHistory.length > MAX_HISTORY) errors.education_history = `Add at most ${MAX_HISTORY} entries.`;
+  const history: Record<string, string | number | null>[] = [];
+  for (const row of rawHistory.slice(0, MAX_HISTORY)) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Input;
+    const level = LEGACY_LEVELS[text(r, "level", 40) ?? ""] ?? text(r, "level", 40);
+    if (!level) continue;
+    if (!oneOf(HISTORY_LEVELS, level)) {
+      errors.education_history = "Choose a level from the list for each entry.";
+      continue;
+    }
+    const year = num(r, "year");
+    if (year !== null && (!Number.isInteger(year) || year < 1950 || year > thisYear + 6)) {
+      errors.education_history = `Years must be between 1950 and ${thisYear + 6}.`;
+      continue;
+    }
+    history.push({ level, subject: text(r, "subject", 120), institution: text(r, "institution", 160), year, grade: text(r, "grade", 40) });
+  }
 
   const values: ProfileValues = {
     full_name,
@@ -199,6 +277,7 @@ export function validateProfile(input: Input, now = new Date()): { values: Profi
     field_of_study,
     current_institution,
     graduation_year: errors.graduation_year ? null : graduation_year,
+    graduation_month: errors.graduation_month ? null : graduation_month,
     gpa: errors.gpa ? null : gpa,
     max_gpa: errors.max_gpa ? null : max_gpa,
     qualification: current_degree_level && field_of_study ? `${current_degree_level} in ${field_of_study}` : null,
@@ -213,6 +292,9 @@ export function validateProfile(input: Input, now = new Date()): { values: Profi
     ...scores,
     german_level,
     work_experience_years: errors.work_experience_years ? null : work_experience_years,
+    work_field,
+    work_history: work.length ? JSON.stringify(work) : null,
+    education_history: history.length ? JSON.stringify(history) : null,
     research_interests: longText(input, "research_interests", 1000),
     experience: longText(input, "experience"),
     academic_achievements: longText(input, "academic_achievements"),

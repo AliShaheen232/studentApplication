@@ -17,8 +17,8 @@ export interface D1Database {
 }
 
 export interface R2Bucket {
-  get(key: string): Promise<unknown>;
-  put(key: string, value: unknown, options?: unknown): Promise<unknown>;
+  get(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer> } | null>;
+  put(key: string, value: ArrayBuffer | Uint8Array, options?: unknown): Promise<unknown>;
   delete(key: string | string[]): Promise<void>;
 }
 

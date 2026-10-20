@@ -1,26 +1,21 @@
 import { GLOBAL_COUNTRIES, type CountryInfo } from "./discoveryData.ts";
 
-const EUROPE = "AL AD AT BA BE BG BY CH CY CZ DE DK EE ES FI FR GB GR HR HU IE IS IT LI LT LU LV MC MD ME MK MT NL NO PL PT RO RS SE SI SK SM UA VA XK";
-const OTHERS = "RU TR CN MY SG AU CA US KR ZA JP AE PK";
+const EUROPE = "AT BA BE BY CH CY CZ DE DK EE ES FI GB GR HR HU IE IS IT LT LU LV MT NL NO PL PT RO RS SE SI SK UA";
+const OTHERS = "RU TR CN MY SG AU CA US KR ZA JP AE GE AZ KG UZ TJ";
 
 export const DESTINATION_CODES: string[] = `${EUROPE} ${OTHERS}`.split(" ");
 
 const EXTRA: Record<string, [string, string, string]> = {
-  AL: ["ALB", "Albania", "Europe"],
-  AD: ["AND", "Andorra", "Europe"],
   BA: ["BIH", "Bosnia and Herzegovina", "Europe"],
   BY: ["BLR", "Belarus", "Europe"],
-  LI: ["LIE", "Liechtenstein", "Europe"],
-  MC: ["MCO", "Monaco", "Europe"],
-  MD: ["MDA", "Moldova", "Europe"],
-  ME: ["MNE", "Montenegro", "Europe"],
-  MK: ["MKD", "North Macedonia", "Europe"],
   RS: ["SRB", "Serbia", "Europe"],
-  SM: ["SMR", "San Marino", "Europe"],
   UA: ["UKR", "Ukraine", "Europe"],
-  VA: ["VAT", "Vatican City", "Europe"],
-  XK: ["XKX", "Kosovo", "Europe"],
   RU: ["RUS", "Russia", "Europe"],
+  GE: ["GEO", "Georgia", "Asia"],
+  AZ: ["AZE", "Azerbaijan", "Asia"],
+  KG: ["KGZ", "Kyrgyzstan", "Asia"],
+  UZ: ["UZB", "Uzbekistan", "Asia"],
+  TJ: ["TJK", "Tajikistan", "Asia"],
 };
 
 function flag(code: string): string {

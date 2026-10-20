@@ -88,13 +88,50 @@ describe("profile validation", () => {
     assert.ok(validateProfile({ ...GOOD_PROFILE, subjects: ["Basket weaving"] }, now).errors.subjects);
     assert.ok(validateProfile({ ...GOOD_PROFILE, countries: ["Atlantis"] }, now).errors.countries);
     assert.ok(validateProfile({ ...GOOD_PROFILE, countries: ["India"] }, now).errors.countries);
-    const ten = ["Germany", "Netherlands", "Serbia", "Russia", "Pakistan", "Japan", "Canada", "Ukraine", "Turkey", "Australia"];
+    const ten = ["Germany", "Netherlands", "Serbia", "Russia", "Spain", "Japan", "Canada", "Ukraine", "Turkey", "Australia"];
     assert.equal(validateProfile({ ...GOOD_PROFILE, countries: ten }, now).errors.countries, undefined);
     assert.ok(validateProfile({ ...GOOD_PROFILE, countries: [...ten, "France"] }, now).errors.countries);
     assert.ok(validateProfile({ ...GOOD_PROFILE, subjects: [] }, now).errors.subjects);
     const seven = ["Computer Science", "Artificial Intelligence", "Data Science", "Software Engineering", "Information Technology", "Engineering", "Finance"];
     assert.equal(validateProfile({ ...GOOD_PROFILE, subjects: seven }, now).errors.subjects, undefined);
     assert.ok(validateProfile({ ...GOOD_PROFILE, subjects: [...seven, "Law"] }, now).errors.subjects);
+  });
+
+  test("earlier education is kept as a checked list", () => {
+    const rows = [
+      { level: "School (Matric)", subject: "Science", institution: "City School", year: 2015, grade: "A*" },
+      { level: "BS (Hons.)", subject: "Business", institution: "VU", year: "2021", grade: "2.86/4" },
+      { level: "", subject: "ignored" },
+    ];
+    const ok = validateProfile({ ...GOOD_PROFILE, education_history: rows }, now);
+    assert.equal(ok.errors.education_history, undefined);
+    const saved = JSON.parse(String(ok.values.education_history));
+    assert.equal(saved.length, 2);
+    assert.equal(saved[1].year, 2021);
+    assert.equal(validateProfile(GOOD_PROFILE, now).values.education_history, null);
+    const old = validateProfile({ ...GOOD_PROFILE, education_history: [{ level: "Bachelor / BS", year: 2020 }, { level: "BS (Lateral)" }, { level: "MPhil" }] }, now);
+    assert.equal(old.errors.education_history, undefined);
+    assert.deepEqual(JSON.parse(String(old.values.education_history)).map((r: { level: string }) => r.level), ["BS (Hons.)", "BS (Lateral)", "MPhil"]);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, education_history: [{ level: "Kindergarten" }] }, now).errors.education_history);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, education_history: [{ level: "PhD", year: 1800 }] }, now).errors.education_history);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, education_history: Array(9).fill({ level: "PhD" }) }, now).errors.education_history);
+  });
+
+  test("work experience is kept per field with dates", () => {
+    const rows = [
+      { field: "Sales", role: "Executive", start: "2018-01", end: "2020-01" },
+      { field: "Logistics", start: "2023-06", end: "" },
+      { field: "", start: "2020-01" },
+    ];
+    const ok = validateProfile({ ...GOOD_PROFILE, work_history: rows }, now);
+    assert.equal(ok.errors.work_history, undefined);
+    const saved = JSON.parse(String(ok.values.work_history));
+    assert.equal(saved.length, 2);
+    assert.equal(saved[1].end, null);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, work_history: [{ field: "Sales", start: "2020-05", end: "2019-01" }] }, now).errors.work_history);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, work_history: [{ field: "Sales", start: "soon" }] }, now).errors.work_history);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, work_history: [{ field: "Sales", start: "2090-01" }] }, now).errors.work_history);
+    assert.ok(validateProfile({ ...GOOD_PROFILE, work_history: Array(6).fill({ field: "Sales", start: "2020-01" }) }, now).errors.work_history);
   });
 
   test("intake must be in the future window and LinkedIn must be https", () => {

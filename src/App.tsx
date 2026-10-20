@@ -430,25 +430,14 @@ function AppContent() {
   };
 
   // Document Vault Actions
-  const handleUploadDoc = async (
-    docType: string,
-    filename: string,
-    size: number,
-    mimeType: string,
-  ) => {
+  const handleUploadDoc = async (docType: string, file: File) => {
     const headers = getAuthHeaders();
-    const res = await fetch("/api/documents/upload", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        doc_type: docType,
-        filename,
-        file_size: size,
-        mime_type: mimeType,
-      }),
-    });
+    const form = new FormData();
+    form.set("doc_type", docType);
+    form.set("file", file);
+    const res = await fetch("/api/documents/upload", { method: "POST", body: form });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "Upload failed");
     }
     const updated = await fetch("/api/documents", {
@@ -1505,6 +1494,7 @@ function AppContent() {
         studentProfile={profile}
         userEmail={currentUser?.email || "scholar@admitpath.app"}
         contacts={contacts}
+        documents={documents}
         isGmailConnected={settings.gmail_connected === 1}
         gmailEmail={settings.gmail_email}
         token={sessionToken}

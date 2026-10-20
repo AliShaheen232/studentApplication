@@ -66,9 +66,19 @@ export function createD1(): { d1: D1Database; raw: DatabaseSync } {
 
 export function createEnv(): { env: Env; raw: DatabaseSync } {
   const { d1, raw } = createD1();
+  const store = new Map<string, Uint8Array>();
   const env: Env = {
     adminpath_prod_d1: d1,
-    adminpath_student_documents: { get: async () => null, put: async () => null, delete: async () => {} },
+    adminpath_student_documents: {
+      get: async (key: string) => (store.has(key) ? { arrayBuffer: async () => store.get(key)!.slice().buffer as ArrayBuffer } : null),
+      put: async (key: string, value: ArrayBuffer | Uint8Array) => {
+        store.set(key, new Uint8Array(value instanceof Uint8Array ? value : new Uint8Array(value)));
+      },
+      delete: async (key: string | string[]) => {
+        for (const k of Array.isArray(key) ? key : [key]) store.delete(k);
+      },
+    },
+    GMAIL_TOKEN_KEY: Buffer.alloc(32, 7).toString("base64"),
   };
   return { env, raw };
 }
@@ -105,6 +115,13 @@ export class Client {
 
   setCookie(name: string, value: string): void {
     this.cookies.set(name, value);
+  }
+
+  async send(method: string, path: string, body?: BodyInit): Promise<Response> {
+    const headers = new Headers({ "CF-Connecting-IP": this.ip });
+    if (this.cookies.size) headers.set("Cookie", [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; "));
+    if (this.csrf && method !== "GET") headers.set("X-CSRF-Token", this.csrf);
+    return worker.fetch(new Request(this.origin + path, { method, headers, body }), this.env);
   }
 
   async request(method: string, path: string, opts: { body?: unknown; headers?: Record<string, string>; csrf?: boolean } = {}) {

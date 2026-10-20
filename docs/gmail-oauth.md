@@ -81,3 +81,21 @@ The old Express `/api/gmail/connect` never contacted Google; it stored random fa
 
 ### Unverified
 - Not run against real Google yet. Needs your OAuth client and secrets, then a manual connect, test email and disconnect.
+
+## Error 403 access_denied on connect
+
+The Google OAuth app is in Testing mode and the Gmail address is not on its test list. In Google Cloud Console open Google Auth Platform, then Audience, and add the address under Test users (up to 100, free). In Testing mode the refresh token expires after 7 days, so students must reconnect weekly. Publishing the app for everyone needs Google verification because `gmail.send` is a sensitive scope.
+
+## Sending without Gmail connected
+
+If Gmail is not connected, the email composer shows copy buttons (recipient, subject, message, everything), an "Open in Gmail" compose link, and the list of the student's uploaded documents plus the programme's stated requirements, so the student can send the draft and attach the files from their own mail app. No extra permissions or paid services.
+
+## Email composer (Worker)
+
+Routes in `worker/routes/compose.ts`, all signed-in only:
+
+- `POST /api/compose/generate` writes the draft from the student's profile and the programme. The greeting is "Dear Admissions Team," unless a named person is on file.
+- `POST /api/compose/find-contact` runs when no email is known. It reads up to 6 pages of the university's own website (robots.txt respected, 1.5 s gap per host), saves the emails it finds in `contacts`, and is not repeated for 100 days (marker row in `live_crawls` with subject `__contact__`). Nothing is guessed.
+- `POST /api/compose/send` sends through the student's Gmail, max 20 emails a day, and logs to `sent_log`.
+
+The modal has no name field and no extra options: To, Subject, Message, and a template choice.

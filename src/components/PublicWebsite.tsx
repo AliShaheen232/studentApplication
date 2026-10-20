@@ -410,7 +410,7 @@ export default function PublicWebsite({
               {
                 icon: FileCheck,
                 title: "Encrypted Document Vault",
-                desc: "CVs, transcripts, and statement of purpose documents (<20MB) are verified with strict MIME type validation and encrypted storage.",
+                desc: "CVs, transcripts, and statement of purpose documents (up to 10 MB) are verified with strict MIME type validation and encrypted storage.",
               },
             ].map((feature, i) => {
               const Icon = feature.icon;

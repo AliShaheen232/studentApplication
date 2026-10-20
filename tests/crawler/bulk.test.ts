@@ -111,7 +111,8 @@ describe("multilingual tagging and filters", () => {
 
   test("country list and names", () => {
     const list = targetCountries();
-    for (const c of ["DE", "FR", "GB", "PL", "UA", "RU", "TR", "CN", "MY", "SG", "AU", "CA", "US", "KR", "ZA", "JP", "AE", "PK"]) assert.ok(list.includes(c), c);
+    for (const c of ["DE", "ES", "GB", "PL", "UA", "RU", "TR", "CN", "MY", "SG", "AU", "CA", "US", "KR", "ZA", "JP", "AE"]) assert.ok(list.includes(c), c);
+    for (const c of ["FR", "PK", "AL"]) assert.ok(!list.includes(c), c);
     assert.deepEqual(targetCountries("de, us x"), ["DE", "US"]);
     assert.equal(countryName("DE"), "Germany");
     assert.equal(countryName("TR"), "Turkey");

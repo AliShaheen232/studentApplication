@@ -49,7 +49,7 @@ All notable changes to the AdmitPath application will be documented in this file
 
 ### Destination countries limited to popular countries
 
-- New `core/destinations.ts`: 58 destination countries (all of Europe plus RU, TR, CN, MY, SG, AU, CA, US, KR, ZA, JP, AE, PK). Single source for Discover, onboarding, profile validation, search country lookup, `/api/discovery/countries` and the bulk crawler.
+- New `core/destinations.ts`: 50 destination countries (most of Europe plus RU, TR, CN, MY, SG, AU, CA, US, KR, ZA, JP, AE, GE, AZ, KG, UZ, TJ). Single source for Discover, onboarding, profile validation, search country lookup, `/api/discovery/countries` and the bulk crawler.
 - Onboarding lets students pick up to 10 destination countries; the server rejects others.
 - Discover dropdown shows only destination countries ("Search destination countries...").
 
@@ -212,3 +212,18 @@ All notable changes to the AdmitPath application will be documented in this file
   - Built-in regional regulatory disclosures (GDPR/PECR, CASL, CAN-SPAM).
 - **Test Suite**:
   - Complete Python unittest suite covering auth, extractors, contacts, matcher, composer, timezone windows, limits, and suppression.
+
+## 1.13.1 - 2026-10-20
+
+- Fixed "Not found" in the email composer: the Worker had no compose routes. Added `worker/routes/compose.ts` (generate, find-contact, send).
+- No recipient name is asked any more. If no email is on file the Worker looks for one on the university's website and the draft opens with "Dear Admissions Team,".
+- Composer simplified to To, Subject, Message. Without Gmail: copy buttons, Open in Gmail and the list of files to attach.
+- Destination countries: 50 (removed 13, added Georgia, Azerbaijan, Kyrgyzstan, Uzbekistan, Tajikistan). `CRAWL_COUNTRIES` can limit a crawl run.
+- Tests: `tests/worker/compose.test.ts`, 145 passing.
+- Email draft no longer adds an opt-out line and no longer claims a background from the target subjects; it uses degree, major, university, graduation date, grade and work experience from onboarding, and leaves out what is empty.
+- Onboarding asks graduation month and field of work experience (migration `0012_graduation_and_work_field.sql`).
+- Composer lists the files to attach (CV, transcript, degree certificate, English test report) with uploaded or missing status.
+- Onboarding asks for the full academic history: Matric/O-level, Intermediate/A-level, ADP or diploma, Bachelor, Master, with subject, institution, year and grade. Rows are suggested from the highest degree. Migration `0013_education_history.sql`.
+- Work experience is asked per field (Sales, Project Management, Logistics ...) with from and to months or "still working"; the total is calculated and can be edited. Drafts list years per field. Migration `0014_work_history.sql`.
+- Document vault now works on the Worker (`worker/routes/documents.ts`): real upload of PDF, Word, JPG or PNG up to 10 MB, 15 files per student, AES-256-GCM encrypted with `GMAIL_TOKEN_KEY` before it goes into the `adminpath-student-documents` R2 bucket, download and delete. Fixes "Upload failed: Not found". Files uploaded before this only had a database row and no content, so they must be uploaded again.
+- Email draft is split into paragraphs: greeting, intro, academic background (highest degree, then earlier education), professional experience, question.
