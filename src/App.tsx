@@ -611,37 +611,37 @@ function AppContent() {
       {/* Left Sidebar */}
       <aside
         className={`
-        fixed lg:sticky top-0 h-screen z-50 flex flex-col justify-between shrink-0
+        fixed lg:sticky top-0 h-dvh z-50 flex flex-col justify-between shrink-0 overflow-y-auto
         bg-white border-r border-slate-200 transition-all duration-300 ease-in-out
-        ${isSidebarOpen ? "w-56" : "w-20"}
+        w-64 max-w-[85vw] ${isSidebarOpen ? "lg:w-56" : "lg:w-20"}
         ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}
       >
         <div>
           {/* Brand Header */}
-          <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 overflow-hidden">
+          <div className={`px-4 py-4 border-b border-slate-100 flex items-center justify-between gap-2 ${isSidebarOpen ? "" : "lg:flex-col lg:px-2 lg:justify-center"}`}>
+            <div className={`flex items-center gap-2.5 min-w-0 ${isSidebarOpen ? "" : "lg:flex-col lg:gap-3"}`}>
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-1 rounded text-slate-700 hover:text-slate-900 transition"
+                className="hidden lg:block p-1.5 rounded text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition"
                 title="Toggle sidebar"
+                aria-label="Toggle sidebar"
               >
                 <Menu className="h-4 w-4" />
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <BrandIcon size="sm" />
-                {isSidebarOpen && (
-                  <span className="font-serif-editorial text-lg font-bold tracking-tight text-slate-900 truncate">
-                    AdminPath
-                  </span>
-                )}
+                <span className={`font-serif-editorial text-lg font-bold tracking-tight text-slate-900 truncate ${isSidebarOpen ? "" : "lg:hidden"}`}>
+                  AdminPath
+                </span>
               </div>
             </div>
 
             <button
               onClick={() => setIsMobileSidebarOpen(false)}
-              className="lg:hidden p-1 rounded text-slate-400 hover:text-slate-700"
+              aria-label="Close menu"
+              className="lg:hidden p-1.5 rounded text-slate-400 hover:text-slate-700"
             >
               <X className="h-4 w-4" />
             </button>
@@ -715,8 +715,8 @@ function AppContent() {
                   title={!isSidebarOpen ? tab.label : undefined}
                   className={`w-full flex items-center ${
                     isSidebarOpen
-                      ? "justify-between px-3 py-2"
-                      : "justify-center p-2"
+                      ? "justify-between px-3 py-2.5"
+                      : "justify-between px-3 py-2.5 lg:justify-center lg:p-2"
                   } rounded-lg text-xs font-normal transition-all group ${
                     isActive
                       ? "border border-[#4f3fd0] bg-[#f3f1ff] text-[#352d82] font-medium shadow-2xs"
@@ -732,14 +732,11 @@ function AppContent() {
                       }`}
                       strokeWidth={1.6}
                     />
-                    {isSidebarOpen && (
-                      <span className="truncate">{tab.label}</span>
-                    )}
+                    <span className={`truncate ${isSidebarOpen ? "" : "lg:hidden"}`}>{tab.label}</span>
                   </div>
                   {typeof tab.badge === "number" &&
-                    tab.badge > 0 &&
-                    isSidebarOpen && (
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                    tab.badge > 0 && (
+                      <span className={`${isSidebarOpen ? "" : "lg:hidden"} px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800`}>
                         {tab.badge}
                       </span>
                     )}
@@ -751,8 +748,8 @@ function AppContent() {
 
         {/* Sidebar Footer with Dynamic Authenticated Student Identity & Logout */}
         <div className="p-3 border-t border-slate-100 bg-slate-50/70">
-          {isSidebarOpen ? (
-            <div className="space-y-2.5">
+          <>
+            <div className={`space-y-2.5 ${isSidebarOpen ? "" : "lg:hidden"}`}>
               <div className="text-[11px] text-slate-500 space-y-0.5">
                 <div className="flex items-center justify-between text-slate-700 font-semibold">
                   <span>Student Application</span>
@@ -776,8 +773,7 @@ function AppContent() {
                 <span>Log out</span>
               </button>
             </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
+            <div className={`hidden flex-col items-center gap-2 ${isSidebarOpen ? "" : "lg:flex"}`}>
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
               <button
                 type="button"
@@ -788,23 +784,24 @@ function AppContent() {
                 <LogOut className="h-4 w-4" />
               </button>
             </div>
-          )}
+          </>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar */}
-        <header className="px-6 lg:px-8 py-4 bg-white/80 backdrop-blur-md border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30">
-          <div className="flex items-center gap-3">
+        <header className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-white/80 backdrop-blur-md border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+              aria-label="Open menu"
+              className="lg:hidden p-2 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shrink-0"
             >
               <Menu className="h-4 w-4" />
             </button>
             <BrandIcon size="sm" className="lg:hidden" />
-            <h1 className="font-serif-editorial text-2xl font-normal text-slate-900 tracking-tight">
+            <h1 className="font-serif-editorial text-lg sm:text-2xl font-normal text-slate-900 tracking-tight truncate">
               {{
                 dashboard: "Daily Overview",
                 discover: "Discover (Country-First Academic Programmes)",

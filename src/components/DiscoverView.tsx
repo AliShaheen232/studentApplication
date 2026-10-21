@@ -646,17 +646,23 @@ export default function DiscoverView({
       <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
         <div className="flex flex-wrap items-center gap-4">
           <span className="flex items-center gap-1.5 font-medium text-slate-800">
-            <Building2 className="h-3.5 w-3.5 text-slate-500" />
-            Page {page + 1}: <strong>{visibleInstitutions.length}</strong> universities
+            <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+            <span>
+              Page {page + 1}: <strong>{visibleInstitutions.length}</strong> universities
+            </span>
           </span>
           <span className="flex items-center gap-1.5 font-medium text-slate-800">
-            <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
-            {selectedStudyLevel} programmes found: <strong>{programCount}</strong>
+            <GraduationCap className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            <span>
+              {selectedStudyLevel} programmes found: <strong>{programCount}</strong>
+            </span>
           </span>
           {coverage && (
             <span className="flex items-center gap-1.5 font-medium text-slate-800">
-              <Search className="h-3.5 w-3.5 text-slate-500" />
-              Subjects known for <strong>{coverage.institutions_checked}</strong> of {coverage.institutions_total} universities in {activeCountry.name}
+              <Search className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+              <span>
+                Subjects known for <strong>{coverage.institutions_checked}</strong> of {coverage.institutions_total} universities in {activeCountry.name}
+              </span>
             </span>
           )}
         </div>
