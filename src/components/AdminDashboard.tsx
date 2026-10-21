@@ -405,7 +405,7 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
                 });
                 setIsProvisionModalOpen(true);
               }}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-2xs transition flex items-center gap-1.5"
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-2xs transition flex items-center gap-1.5"
             >
               <Plus className="h-4 w-4" /> Provision Student Account
             </button>
@@ -640,7 +640,7 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
                           });
                           setIsProvisionModalOpen(true);
                         }}
-                        className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-2xs transition"
+                        className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-2xs transition"
                       >
                         Provision Student Now
                       </button>
@@ -1090,7 +1090,7 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs"
+                  className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-xs"
                 >
                   Complete Provisioning
                 </button>
@@ -1240,7 +1240,7 @@ export default function AdminDashboard({ onNotify }: AdminDashboardProps) {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs"
+                  className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-xs"
                 >
                   Save Profile Changes
                 </button>

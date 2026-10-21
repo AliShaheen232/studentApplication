@@ -106,7 +106,7 @@ export default function StartSendingModal({
                   setResultSummary(null);
                   onClose();
                 }}
-                className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46]"
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8]"
               >
                 Close Summary
               </button>
@@ -182,7 +182,7 @@ export default function StartSendingModal({
                 type="button"
                 onClick={handleExecuteSending}
                 disabled={isSending || !gmailConnected || remainingQuota <= 0 || pendingCount === 0}
-                className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-2xs transition disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-2xs transition disabled:opacity-50 flex items-center gap-1.5"
               >
                 {isSending ? (
                   <>

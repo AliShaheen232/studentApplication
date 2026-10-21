@@ -195,7 +195,7 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
               <button
                 onClick={() => setIsConnectModalOpen(true)}
                 disabled={isLoading}
-                className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-2xs transition flex items-center gap-1.5"
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-2xs transition flex items-center gap-1.5"
               >
                 <Mail className="h-4 w-4" />
                 {gmailStatus.needs_reconnect ? 'Reconnect Gmail' : 'Connect Gmail Account'}
@@ -295,7 +295,7 @@ export default function GmailTab({ onNotify }: GmailTabProps) {
                 <button
                   onClick={() => handleConnect()}
                   disabled={isLoading}
-                  className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs"
+                  className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-xs"
                 >
                   {isLoading ? 'Opening Google...' : 'Continue to Google'}
                 </button>

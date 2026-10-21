@@ -8,6 +8,7 @@ import {
   RotateCw,
 } from "lucide-react";
 import BrandIcon from "./BrandIcon";
+import Pip from "./Pip";
 
 const GOOGLE_ERRORS: Record<string, string> = {
   google_denied: "Google sign-in was cancelled.",
@@ -96,6 +97,9 @@ export default function LoginView({
     <div className="min-h-screen bg-linear-to-b from-slate-50 via-white to-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       {/* Brand & Title Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+        <div className="flex justify-center mb-1">
+          <Pip size={84} />
+        </div>
         <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white shadow-xs border border-slate-200 mb-3">
           <BrandIcon size="lg" />
         </div>
@@ -174,7 +178,7 @@ export default function LoginView({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 px-4 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-2.5 px-4 rounded-lg bg-[#4f3fd0] hover:bg-[#4034a8] text-white font-semibold text-xs shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isLoading ? (
                 <>

@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
   <defs>
     <linearGradient id="shieldGrad" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#0f172a" />
-      <stop offset="100%" stop-color="#022c22" />
+      <stop offset="0%" stop-color="#1f1a4d" />
+      <stop offset="100%" stop-color="#352d82" />
     </linearGradient>
     <linearGradient id="emeraldGrad" x1="8" y1="6" x2="24" y2="26" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#34d399" />
-      <stop offset="100%" stop-color="#059669" />
+      <stop offset="0%" stop-color="#a5b4fc" />
+      <stop offset="100%" stop-color="#7466f5" />
     </linearGradient>
   </defs>
   <!-- Shield Outline -->
-  <path d="M16 2L4 6.5V15.5C4 23 9.5 28.5 16 30C22.5 28.5 28 23 28 15.5V6.5L16 2Z" fill="url(#shieldGrad)" stroke="#10b981" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M16 2L4 6.5V15.5C4 23 9.5 28.5 16 30C22.5 28.5 28 23 28 15.5V6.5L16 2Z" fill="url(#shieldGrad)" stroke="#8f84fb" stroke-width="1.5" stroke-linejoin="round"/>
   <!-- Academic Mortarboard Path -->
   <path d="M16 8L8 12.5L16 17L24 12.5L16 8Z" fill="url(#emeraldGrad)"/>
   <!-- Cap Pedestal / Path -->
-  <path d="M11 14.5V19C11 21.5 13.2 23 16 23C18.8 23 21 21.5 21 19V14.5L16 17.5L11 14.5Z" fill="#10b981" fill-opacity="0.85"/>
+  <path d="M11 14.5V19C11 21.5 13.2 23 16 23C18.8 23 21 21.5 21 19V14.5L16 17.5L11 14.5Z" fill="#8f84fb" fill-opacity="0.85"/>
 </svg>

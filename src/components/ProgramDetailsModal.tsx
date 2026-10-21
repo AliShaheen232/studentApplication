@@ -234,7 +234,7 @@ export default function ProgramDetailsModal({
               onClose();
               onSendEmail(program);
             }}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold shadow-xs transition"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-[#4f3fd0] hover:bg-[#4034a8] text-white text-xs font-semibold shadow-xs transition"
           >
             <Mail className="h-3.5 w-3.5" />
             Send Admissions Inquiry Email

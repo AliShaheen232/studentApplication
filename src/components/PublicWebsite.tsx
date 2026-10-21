@@ -213,7 +213,7 @@ export default function PublicWebsite({
             </button>
             <a
               href="#pricing"
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs transition"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-xs transition"
             >
               Get Started
             </a>
@@ -243,7 +243,7 @@ export default function PublicWebsite({
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
               href="#pricing"
-              className="w-full sm:w-auto px-6 py-3.5 text-base font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-sm flex items-center justify-center gap-2 transition"
+              className="w-full sm:w-auto px-6 py-3.5 text-base font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-sm flex items-center justify-center gap-2 transition"
             >
               Subscribe for Student <ArrowRight className="h-4 w-4" />
             </a>
@@ -534,7 +534,7 @@ export default function PublicWebsite({
                     }}
                     className={`w-full py-2.5 px-4 rounded-lg text-sm font-semibold transition shadow-xs ${
                       p.popular
-                        ? "bg-[#047857] text-white hover:bg-[#065f46]"
+                        ? "bg-[#4f3fd0] text-white hover:bg-[#4034a8]"
                         : "bg-slate-900 text-white hover:bg-slate-800"
                     }`}
                   >
@@ -662,7 +662,7 @@ export default function PublicWebsite({
                       setSelectedPlanModal(null);
                       onSignInClick();
                     }}
-                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white"
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white"
                   >
                     Go to Sign In
                   </button>
@@ -729,7 +729,7 @@ export default function PublicWebsite({
                   <button
                     type="submit"
                     disabled={isCheckingOut}
-                    className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs disabled:opacity-50"
+                    className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-xs disabled:opacity-50"
                   >
                     {isCheckingOut
                       ? "Processing Payment..."

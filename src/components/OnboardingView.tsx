@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, GraduationCap, Globe, Languages, RotateCw, UserRound } from "lucide-react";
 import BrandIcon from "./BrandIcon";
+import Pip from "./Pip";
 import { DESTINATION_COUNTRIES, FIELDS_OF_STUDY, MAX_DESTINATIONS } from "../data/countries";
 
 const ISO_CODES =
@@ -345,7 +346,7 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
           type="button"
           onClick={() => set(key, o)}
           className={`px-3.5 py-1.5 rounded-lg text-xs font-medium border transition ${
-            form[key] === o ? "bg-emerald-50 border-[#047857] text-emerald-900" : "bg-white border-slate-300 text-slate-700 hover:border-slate-400"
+            form[key] === o ? "bg-emerald-50 border-[#4f3fd0] text-emerald-900" : "bg-white border-slate-300 text-slate-700 hover:border-slate-400"
           }`}
         >
           {o}
@@ -358,10 +359,13 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
   const last = step === STEPS.length - 1;
 
   return (
-    <div className={mode === "onboarding" ? "min-h-screen bg-[#f4f6f8] py-8 px-4" : ""}>
+    <div className={mode === "onboarding" ? "min-h-screen bg-transparent py-8 px-4" : ""}>
       <div className="max-w-2xl mx-auto">
         {mode === "onboarding" && (
           <div className="text-center mb-6">
+            <div className="flex justify-center mb-1">
+              <Pip size={72} />
+            </div>
             <div className="inline-flex p-2 rounded-2xl bg-white border border-slate-200 mb-3">
               <BrandIcon size="lg" />
             </div>
@@ -378,7 +382,7 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
               key={s.title}
               type="button"
               onClick={() => i < step && setStep(i)}
-              className={`flex-1 h-1.5 rounded-full ${i <= step ? "bg-[#047857]" : "bg-slate-200"} ${i < step ? "cursor-pointer" : "cursor-default"}`}
+              className={`flex-1 h-1.5 rounded-full ${i <= step ? "bg-[#4f3fd0]" : "bg-slate-200"} ${i < step ? "cursor-pointer" : "cursor-default"}`}
               aria-label={s.title}
             />
           ))}
@@ -520,7 +524,7 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
                         type="button"
                         onClick={() => toggle("subjects", f.name, MAX_SUBJECTS)}
                         className={`px-2.5 py-1 rounded-md text-xs border transition ${
-                          on ? "bg-emerald-50 border-[#047857] text-emerald-900 font-medium" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
+                          on ? "bg-emerald-50 border-[#4f3fd0] text-emerald-900 font-medium" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
                         }`}
                       >
                         {on && <Check className="inline h-3 w-3 mr-1" />}
@@ -542,7 +546,7 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
                         type="button"
                         onClick={() => toggle("countries", c.name, MAX_DESTINATIONS)}
                         className={`px-2.5 py-1 rounded-md text-xs border transition ${
-                          on ? "bg-emerald-50 border-[#047857] text-emerald-900 font-medium" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
+                          on ? "bg-emerald-50 border-[#4f3fd0] text-emerald-900 font-medium" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
                         }`}
                       >
                         {c.flag} {c.name}
@@ -579,7 +583,7 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
                       type="button"
                       onClick={() => set("funding", form.funding === value ? "" : value)}
                       className={`px-3 py-2 rounded-lg text-xs text-left border transition ${
-                        form.funding === value ? "bg-emerald-50 border-[#047857] text-emerald-900" : "bg-white border-slate-300 text-slate-700"
+                        form.funding === value ? "bg-emerald-50 border-[#4f3fd0] text-emerald-900" : "bg-white border-slate-300 text-slate-700"
                       }`}
                     >
                       {text}
@@ -694,13 +698,13 @@ export default function OnboardingView({ profile, mode, onSaved, onCancel }: Onb
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="px-5 py-2 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60"
+                className="px-5 py-2 rounded-lg bg-[#4f3fd0] hover:bg-[#4034a8] text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60"
               >
                 {saving ? <RotateCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 {mode === "onboarding" ? "Finish setup" : "Save profile"}
               </button>
             ) : (
-              <button type="button" onClick={next} className="px-5 py-2 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold flex items-center gap-1.5">
+              <button type="button" onClick={next} className="px-5 py-2 rounded-lg bg-[#4f3fd0] hover:bg-[#4034a8] text-white text-xs font-semibold flex items-center gap-1.5">
                 Next <ArrowRight className="h-3.5 w-3.5" />
               </button>
             )}

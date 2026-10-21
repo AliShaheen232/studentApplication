@@ -599,7 +599,7 @@ function AppContent() {
                   : "dashboard";
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8] text-slate-800 flex font-sans selection:bg-emerald-700 selection:text-white antialiased">
+    <div className="min-h-screen bg-transparent text-slate-800 flex font-sans selection:bg-emerald-700 selection:text-white antialiased">
       {/* Mobile Backdrop */}
       {isMobileSidebarOpen && (
         <div
@@ -719,7 +719,7 @@ function AppContent() {
                       : "justify-center p-2"
                   } rounded-lg text-xs font-normal transition-all group ${
                     isActive
-                      ? "border border-[#047857] bg-[#f0fdf4] text-[#064e3b] font-medium shadow-2xs"
+                      ? "border border-[#4f3fd0] bg-[#f3f1ff] text-[#352d82] font-medium shadow-2xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent"
                   }`}
                 >
@@ -727,7 +727,7 @@ function AppContent() {
                     <Icon
                       className={`h-4 w-4 shrink-0 ${
                         isActive
-                          ? "text-[#047857]"
+                          ? "text-[#4f3fd0]"
                           : "text-slate-500 group-hover:text-slate-700"
                       }`}
                       strokeWidth={1.6}
@@ -836,7 +836,7 @@ function AppContent() {
             {/* Start Sending Button in Header */}
             <button
               onClick={() => setIsStartSendingOpen(true)}
-              className="px-4 py-2 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-[#4f3fd0] hover:bg-[#4034a8] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
               <Send className="h-3.5 w-3.5" />
               Start Sending ({queueData.remaining_daily_quota ?? 25} left)
@@ -947,7 +947,7 @@ function AppContent() {
                   </button>
                   <button
                     onClick={() => setIsStartSendingOpen(true)}
-                    className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#047857] text-white hover:bg-[#065f46] shadow-xs transition flex items-center gap-1.5"
+                    className="px-5 py-2 text-xs font-semibold rounded-lg bg-[#4f3fd0] text-white hover:bg-[#4034a8] shadow-xs transition flex items-center gap-1.5"
                   >
                     <Send className="h-3.5 w-3.5" />
                     Start Sending
@@ -1048,7 +1048,7 @@ function AppContent() {
                       </button>
                       <button
                         onClick={() => handleOpenEmailModal(p as any)}
-                        className="py-1.5 px-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                        className="py-1.5 px-2.5 rounded-lg bg-[#4f3fd0] hover:bg-[#4034a8] text-white text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <Mail className="h-3 w-3" />
                         Send Email
@@ -1225,7 +1225,7 @@ function AppContent() {
                   <button
                     onClick={handleApproveDraft}
                     disabled={!composeTargetProg || !draftSubject}
-                    className="px-6 py-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                    className="px-6 py-2.5 rounded-lg bg-[#4f3fd0] hover:bg-[#4034a8] text-white font-semibold text-xs shadow-xs transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     Approve Draft & Queue for Sending
@@ -1251,7 +1251,7 @@ function AppContent() {
 
                 <button
                   onClick={() => setIsStartSendingOpen(true)}
-                  className="px-5 py-2.5 rounded-lg bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg bg-[#4f3fd0] hover:bg-[#4034a8] text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Send className="h-4 w-4" />
                   Start Sending Batch ({queueData.remaining_daily_quota} Daily
@@ -1374,7 +1374,7 @@ function AppContent() {
 
                     <button
                       onClick={() => handleStartCompose(m.program)}
-                      className="px-4 py-2 rounded-lg bg-[#047857] text-white text-xs font-semibold hover:bg-[#065f46] shrink-0"
+                      className="px-4 py-2 rounded-lg bg-[#4f3fd0] text-white text-xs font-semibold hover:bg-[#4034a8] shrink-0"
                     >
                       Draft Inquiry
                     </button>
