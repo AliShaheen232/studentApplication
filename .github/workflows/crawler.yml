@@ -40,7 +40,7 @@ jobs:
         env:
           BULK_TIME_BUDGET_MIN: "40"
           CRAWL_COUNTRIES: ${{ inputs.countries || vars.CRAWL_COUNTRIES }}
-          D1_WRITE_BUDGET_PER_DAY: "90000"
+          D1_WRITE_BUDGET_PER_DAY: "85000"
       - name: Upload country snapshots to R2
         if: always()
         run: |
