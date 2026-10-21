@@ -428,7 +428,6 @@ export default function DiscoverView({
           <div className="relative">
             <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
               <span>1. Destination Country</span>
-              <span className="text-[10px] text-slate-400 font-normal">{DESTINATION_COUNTRIES.length} destination countries</span>
             </label>
 
             <button
@@ -495,7 +494,6 @@ export default function DiscoverView({
           <div>
             <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
               <span>2. Field of Study</span>
-              <span className="text-[10px] text-slate-400 font-normal">Curriculum Taxonomy</span>
             </label>
 
             <select
@@ -529,8 +527,7 @@ export default function DiscoverView({
 
           <div>
             <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-              <span>4. Budget (Optional)</span>
-              <span className="text-[10px] text-slate-400 font-normal">Max tuition per year, USD</span>
+              <span>4. Budget (USD / year)</span>
             </label>
             <input
               type="number"

@@ -5,7 +5,7 @@ import { readdirSync, readFileSync, mkdtempSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Db } from "../../crawler/d1.ts";
-import { detectLevel, extractEmails, extractPrograms, scoreLink } from "../../crawler/extract.ts";
+import { cleanText, detectLevel, extractEmails, extractPrograms, scoreLink } from "../../crawler/extract.ts";
 import { PoliteFetcher } from "../../crawler/fetcher.ts";
 import { fieldMatcher } from "../../crawler/fields.ts";
 import { claimNext, failJob, runSearch } from "../../crawler/job.ts";
@@ -116,6 +116,12 @@ describe("wikidata request", () => {
     assert.equal(list.length, 1);
     assert.ok(queries[0].includes('wdt:P297 "DE"'));
     assert.ok(queries.at(-1)!.includes("VALUES ?type"));
+  });
+});
+
+describe("entity cleanup", () => {
+  test("soft hyphens vanish from programme names", () => {
+    assert.equal(cleanText("Master Wirtschafts&shy;informatik (M.Sc.)"), "Master Wirtschaftsinformatik (M.Sc.)");
   });
 });
 

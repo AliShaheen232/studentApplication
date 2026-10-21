@@ -19,7 +19,7 @@ export interface ContactCandidate {
   sourceUrl: string;
 }
 
-const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", auml: "ä", ouml: "ö", uuml: "ü", Auml: "Ä", Ouml: "Ö", Uuml: "Ü", szlig: "ß", eacute: "é", egrave: "è", aacute: "á", iacute: "í", oacute: "ó", uacute: "ú", ntilde: "ñ", ccedil: "ç" };
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", auml: "ä", ouml: "ö", uuml: "ü", Auml: "Ä", Ouml: "Ö", Uuml: "Ü", szlig: "ß", eacute: "é", egrave: "è", aacute: "á", iacute: "í", oacute: "ó", uacute: "ú", ntilde: "ñ", ccedil: "ç", shy: "", zwnj: "", zwj: "", hellip: "…", lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", copy: "©", reg: "®", agrave: "à", acirc: "â", ecirc: "ê", euml: "ë", icirc: "î", ocirc: "ô", ucirc: "û", ugrave: "ù", oslash: "ø", aring: "å", aelig: "æ", Eacute: "É", ccaron: "č", scaron: "š" };
 
 export function decodeEntities(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
@@ -32,7 +32,7 @@ export function decodeEntities(s: string): string {
 }
 
 export function cleanText(html: string): string {
-  return decodeEntities(html.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
+  return decodeEntities(html.replace(/<[^>]*>/g, " ")).replace(/[\u00ad\u200b-\u200d]/g, "").replace(/\s+/g, " ").trim();
 }
 
 export function stripNoise(html: string): string {
