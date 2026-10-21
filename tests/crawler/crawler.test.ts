@@ -119,6 +119,27 @@ describe("wikidata request", () => {
   });
 });
 
+describe("wikidata paging", () => {
+  test("pages through a large country and dedupes by domain", async () => {
+    const offsets: number[] = [];
+    const fake = (async (u: RequestInfo | URL) => {
+      const q = decodeURIComponent(String(u).split("query=")[1]);
+      const offset = Number(/OFFSET (\d+)/.exec(q)![1]);
+      offsets.push(offset);
+      const n = offset === 0 ? 800 : 50;
+      const bindings = Array.from({ length: n }, (_, i) => {
+        const k = offset + i;
+        return { uni: { value: `x/Q${k + 1}` }, uniLabel: { value: `Uni ${k}` }, website: { value: `https://u${k}.de` }, students: { value: String(10000 - k) } };
+      });
+      return new Response(JSON.stringify({ results: { bindings } }));
+    }) as typeof fetch;
+    const list = await fetchInstitutions("de", 5000, fake, async () => {});
+    assert.deepEqual(offsets, [0, 800]);
+    assert.equal(list.length, 850);
+    assert.equal(list[0].domain, "u0.de");
+  });
+});
+
 describe("field matching and degree detection", () => {
   const cs = fieldMatcher("Computer Science");
   test("multilingual synonyms", () => {

@@ -2,6 +2,13 @@
 
 All notable changes to the AdmitPath application will be documented in this file.
 
+## [1.12.1] - 2026-10-21
+
+### Import every university per country
+
+- The Wikidata query used to cut off after about 600 raw rows (one per student-count year and place), which left only 15 to 20 universities for big countries such as Germany, the US and France. It now groups per university and pages through the results (800 per page, up to 5,000 per country).
+- To re-import a country, delete its row from `crawl_countries` and run the crawler with that country code.
+
 ## [1.12.0] - 2026-10-19
 
 ### Backup for failed live checks, honest programme details
