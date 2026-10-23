@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
       - name: Crawl searches queued by students
         run: node --experimental-strip-types --no-warnings crawler/run.ts
         env:

@@ -5,6 +5,9 @@ import { d1Rest } from "./d1.ts";
 import { PoliteFetcher } from "./fetcher.ts";
 import { fetchInstitutions } from "./wikidata.ts";
 
+process.on("uncaughtException", (err) => console.log(`Ignored network error: ${err?.message ?? err}`));
+process.on("unhandledRejection", (err) => console.log(`Ignored rejected promise: ${(err as Error)?.message ?? err}`));
+
 function env(name: string, fallback?: string): string {
   const v = process.env[name] ?? fallback;
   if (v === undefined || v === "") throw new Error(`Missing environment variable ${name}`);
